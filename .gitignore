@@ -1,0 +1,15 @@
+# profiler / build byproducts
+profiler.log
+*.db
+.*.db
+mxlog/
+tooling/**/probe
+tooling/**/*.o
+_probe_out/
+prof/
+profout*/
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
