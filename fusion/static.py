@@ -6,7 +6,7 @@ PyTorch Inductor already has after it lowers a fusion group to a Triton kernel.
 """
 from __future__ import annotations
 from dataclasses import dataclass, asdict
-from .hw import HardwareModel, ADA_SM89
+from .hw import HardwareModel, ADA_SM89, default_hw
 
 
 @dataclass
@@ -28,8 +28,10 @@ class StaticInputs:
         return {f"{prefix}{k}": v for k, v in d.items()}
 
 
-def from_triton(compiled, hw: HardwareModel = ADA_SM89, name: str = "") -> StaticInputs:
-    """Build StaticInputs from a Triton CompiledKernel + a HardwareModel."""
+def from_triton(compiled, hw: HardwareModel = None, name: str = "") -> StaticInputs:
+    """Build StaticInputs from a Triton CompiledKernel + a HardwareModel.
+    hw defaults to default_hw() (env FUSION_HW: ada|c500; ada when unset)."""
+    hw = hw or default_hw()
     n_regs = int(compiled.n_regs)
     n_spills = int(compiled.n_spills)
     shared = int(compiled.metadata.shared)

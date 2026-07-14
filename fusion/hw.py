@@ -102,16 +102,42 @@ ADA_SM89 = HardwareModel(
     spill_cap_bytes=None,    # NVIDIA: spilling is a soft cost (local-mem traffic), not a hard fail
 )
 
-# Stub for later Phase-4 transfer (constants filled in on the MetaX session; NOT used on Ada).
-# Documented here so the schema/model is portable by construction.
-METAX_C500_STUB = HardwareModel(
-    name="MetaX-C500-STUB",
-    sm_count=0, max_warps_per_sm=0, max_threads_per_sm=0, max_blocks_per_sm=0,
-    regs_per_sm=0, max_regs_per_thread=0, reg_alloc_unit=0, warp_alloc_granularity=0,
-    smem_per_sm=0, smem_alloc_unit=0,
-    split_regfile=True,        # ST + MT register files
-    spill_cap_bytes=4096,      # hard 4 KB/thread private-mem cap -> mcErrorMemoryValueTooLarge
+# MetaX C500 (Phase 4 cross-vendor transfer). Constants from torch.cuda.get_device_properties +
+# `cucc -resource-usage` on this machine (env `fusion`, MACA 3.7.0), 2026-07-14.
+# Verified: multi_processor_count=104, max_threads_per_multi_processor=2048, warp_size=**64**,
+# regs_per_multiprocessor=131072, shared_memory_per_multiprocessor=65536, compute cap 8.0.
+# KEY vendor differences vs Ada sm89: 64-thread wavefronts (not 32); 2x register file;
+# split ST/MT register file; hard 4 KB/thread private (spill) cap.
+# NOTE: the occupancy-granularity fields (reg_alloc_unit, warp_alloc_granularity, max_blocks_per_sm,
+# smem_alloc_unit, max_regs_per_thread) are not exposed by the driver; the values below are
+# physically-motivated estimates to be CALIBRATED against MCPTI-measured occupancy (waves). Since
+# the smooth occupancy term is inert on Ada (spills dominate), P_occ precision is secondary; the
+# decision-critical constant is the spill behavior (4 KB cap).
+METAX_C500 = HardwareModel(
+    name="MetaX-C500",
+    sm_count=104,
+    max_warps_per_sm=32,          # 2048 threads / 64-wide wave
+    max_threads_per_sm=2048,
+    max_blocks_per_sm=32,         # estimate (sm80-like); calibrate
+    regs_per_sm=131072,           # MT (vector) register file / CU
+    max_regs_per_thread=256,      # Triton reports up to 256 MTregs; treat as cap (calibrate)
+    reg_alloc_unit=512,           # estimate: 64-wide wave x 8-reg granularity (Ada is 32x8=256)
+    warp_alloc_granularity=1,     # estimate; calibrate
+    smem_per_sm=65536,            # 64 KB / CU
+    smem_alloc_unit=128,          # estimate
+    warp_size=64,                 # <-- 64-thread wavefronts (the big divergence from NVIDIA)
+    split_regfile=True,           # ST + MT register files (n_regs read as MTregisters)
+    spill_cap_bytes=4096,         # hard 4 KB/thread private-mem cap -> mcErrorMemoryValueTooLarge
 )
+METAX_C500_STUB = METAX_C500   # back-compat alias
+
+
+def default_hw(name: str | None = None):
+    """Select the HardwareModel for the current run. `name` or env FUSION_HW in {ada, c500};
+    defaults to Ada (preserves the committed NVIDIA behavior when unset)."""
+    import os
+    key = (name or os.environ.get("FUSION_HW", "ada")).lower()
+    return METAX_C500 if key in ("c500", "metax", "mx") else ADA_SM89
 
 
 if __name__ == "__main__":
