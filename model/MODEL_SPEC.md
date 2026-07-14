@@ -50,12 +50,12 @@ no spill ⇒ "layout"; neither ⇒ "none".)
 ## 4. Fitted Ada constants (model/ada_constants.json)
 | const | value | note |
 |---|---|---|
-| C_peak | 4.01e11 flop/s | under-constrained (workloads memory-bound); not decision-critical |
-| **B_peak** | **1.52e11 B/s** | physically correct for RTX 4060 laptop (128-bit GDDR6) |
-| T_launch | 8.16e-5 s | per-launch overhead (WSL2 Python/Triton) |
+| C_peak | 4.18e11 flop/s | under-constrained (workloads memory-bound); not decision-critical |
+| **B_peak** | **1.51e11 B/s** | physically correct for RTX 4060 laptop (128-bit GDDR6, ~151 GB/s) |
+| T_launch | 4.43e-5 s | per-launch overhead (WSL2 Python/Triton) |
 | occ_knee | 0.08 | hit floor ⇒ occupancy above ~8% does not drive toxicity on Ada; **spills do** |
-| gamma_spill | 0.0887 | spill sensitivity (the dominant toxic term) |
-| beta_layout | 0.406 | bank-conflict sensitivity (fit from the cuda_layout PAD0/PAD1 slowdown) |
+| gamma_spill | 0.0807 | spill sensitivity (the dominant toxic term) |
+| beta_layout | 0.327 | bank-conflict sensitivity (fit from the cuda_layout PAD0/PAD1 slowdown) |
 
 Fit objective: combined log(speedup) (weight 1.0) + log(absolute time) (0.3), occ_knee bounded
 [0.08, 0.35] (Ada saturates HBM by ~⅓ occupancy). Nelder–Mead, 6 restarts.
@@ -70,22 +70,24 @@ Fit objective: combined log(speedup) (weight 1.0) + log(absolute time) (0.3), oc
   dram_bytes, tensor_pct, dur_ns (ncu kernel duration, ns)  → dominant_penalty ∈ {spill, layout, none}
 
 ## 6. Headline Ada results (to reproduce on C500 and compare)
-- RQ1 decision (72 genuine cases; 16 degenerate no-op rows — NOUT∈{8,16}, unfused==fused — excluded
-  from scoring): **recall=1.00 across every CV** (never keeps a toxic fusion). F1 by fold scheme:
-  shape-CV **0.91** (spills are constant across (R,C) shapes ⇒ ~in-sample), leave-one-NOUT-out
-  **1.00** (spill signal perfectly separates the reduction cases on this clean microbench),
-  leave-one-dtype-out **0.91** (fp16-held 0.96, fp32-held 0.86 — a mild transfer cost). Greedy F1=0.00.
+- RQ1 decision (64 genuine cases; 8 degenerate no-op rows — pointwise K=1, unfused==fused — excluded
+  from scoring): **in-sample precision=1.000 / recall=0.941 / F1=0.970 / acc=0.984** (TP=16, FP=0,
+  FN=1, TN=47) — catches 16/17 toxic fusions; the one miss is a borderline no-spill NOUT=32 case
+  (speedup 0.91), the spill-focused model's honest blind spot for mild non-spill toxicity. F1 by fold
+  scheme: shape-CV **0.865** (P=0.800/R=0.941; spills are constant across (R,C) shapes ⇒ ~in-sample),
+  leave-one-NOUT-out **0.829** (P=0.708/R=1.000; NOUT=32 F1=0.222 over-flags the hard boundary,
+  NOUT=64 & 128 F1=1.000), leave-one-dtype-out **0.970** (P=1.000/R=0.941; fp16-held 0.941,
+  fp32-held 1.000). Greedy F1=0.00.
 - RQ2a occupancy: analytic model **reproduces ncu *theoretical* occupancy exactly (MAE=0.000, 22/22)**
   = the CUDA occupancy calculator by construction; it does **not** predict *achieved* occupancy (off
   21.7 pts mean / 88 max) — the spill term handles the real degradation.
 - RQ2b attribution: **100%** on cases with a profiled dominant penalty (spill branch);
   layout branch validated by the raw-CUDA bank-conflict study (spills=0, conflicts drive harm).
-- RQ4 utility: recommender **up to 9.85× faster than greedy-always-fuse**; **matches the timed
-  oracle exactly (1.00×) on the fp16 subgraphs** and is **3.03× off oracle on the fp32 subgraph**
-  (where discounting smooth occupancy under-penalises non-spilling fp32 width tuning — still 2.80×
-  faster than greedy), at zero timing cost (compiles only). See `logs/run_endtoend.log`.
-  *Caveat:* the subgraphs are deliberately built with wide layers greedy over-fuses, so 9.85× is a
-  constructed upper bound on greedy's badness, not a typical-workload speedup.
+- RQ4 utility: recommender **6.2–9.7× faster than greedy-always-fuse** (wide_multiproj **9.72×**,
+  mixed_widths **6.17×**, fp32_block **7.43×**); **matches the timed oracle exactly (1.00×) on all
+  three subgraphs**, at zero timing cost (compiles only). See `logs/run_endtoend.log`.
+  *Caveat:* the subgraphs are deliberately built with wide layers greedy over-fuses, so the 9.72×
+  headline is a constructed upper bound on greedy's badness, not a typical-workload speedup.
 - Ada finding: the **only decision-flipping** toxic mechanism is the register-spill cliff (P_occ).
   Layout penalties degrade but do not overturn round-trip savings on Ada.
 

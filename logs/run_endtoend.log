@@ -1,29 +1,29 @@
-[endtoend] device constants: B_peak=1.52e+11 gamma_spill=0.0887
+[endtoend] device constants: B_peak=1.51e+11 gamma_spill=0.0807
 
 ### subgraph: wide_multiproj  (2 layers)
-  L(R4096xC2048 NOUT128 float16): none(w8)=14.195 greedy(w128)=152.812 model(w32)=10.770 oracle(w32)=10.770 | reject_greedy=True reason=spill
-  L(R4096xC2048 NOUT64 float16): none(w8)=6.972 greedy(w64)=6.518 model(w32)=5.399 oracle(w32)=5.399 | reject_greedy=True reason=spill
-  TOTALS ms: none=21.167 greedy=159.329 model=16.169 oracle=16.169
-  model vs greedy: 9.85x faster | model vs oracle: 1.000x of oracle (1.0=optimal)
-  search cost: model=9 compiles(no run) | oracle=9 timed runs; model decide wall=30ms
+  L(R4096xC2048 NOUT128 float16): none(w8)=13.537 greedy(w128)=151.438 model(w32)=10.778 oracle(w32)=10.778 | reject_greedy=True reason=spill
+  L(R4096xC2048 NOUT64 float16): none(w8)=6.911 greedy(w64)=6.520 model(w32)=5.472 oracle(w32)=5.472 | reject_greedy=True reason=spill
+  TOTALS ms: none=20.448 greedy=157.958 model=16.250 oracle=16.250
+  model vs greedy: 9.72x faster | model vs oracle: 1.000x of oracle (1.0=optimal)
+  search cost: model=9 compiles(no run) | oracle=9 timed runs; model decide wall=27ms
 
 ### subgraph: mixed_widths  (4 layers)
-  L(R2048xC2048 NOUT16 float16): none(w8)=0.933 greedy(w16)=0.772 model(w16)=0.772 oracle(w16)=0.772 | reject_greedy=False reason=None
-  L(R2048xC2048 NOUT32 float16): none(w8)=1.792 greedy(w32)=1.471 model(w32)=1.471 oracle(w32)=1.471 | reject_greedy=False reason=None
-  L(R2048xC2048 NOUT64 float16): none(w8)=3.775 greedy(w64)=3.425 model(w32)=3.078 oracle(w32)=3.078 | reject_greedy=True reason=spill
-  L(R2048xC2048 NOUT128 float16): none(w8)=7.431 greedy(w128)=67.907 model(w32)=5.817 oracle(w32)=5.817 | reject_greedy=True reason=spill
-  TOTALS ms: none=13.932 greedy=73.575 model=11.139 oracle=11.139
-  model vs greedy: 6.61x faster | model vs oracle: 1.000x of oracle (1.0=optimal)
+  L(R2048xC2048 NOUT16 float16): none(w8)=0.898 greedy(w16)=0.773 model(w16)=0.773 oracle(w16)=0.773 | reject_greedy=False reason=None
+  L(R2048xC2048 NOUT32 float16): none(w8)=1.737 greedy(w32)=1.451 model(w32)=1.451 oracle(w32)=1.451 | reject_greedy=False reason=None
+  L(R2048xC2048 NOUT64 float16): none(w8)=3.571 greedy(w64)=3.430 model(w32)=2.869 oracle(w32)=2.869 | reject_greedy=True reason=spill
+  L(R2048xC2048 NOUT128 float16): none(w8)=7.460 greedy(w128)=61.637 model(w32)=5.810 oracle(w32)=5.810 | reject_greedy=True reason=spill
+  TOTALS ms: none=13.665 greedy=67.291 model=10.904 oracle=10.904
+  model vs greedy: 6.17x faster | model vs oracle: 1.000x of oracle (1.0=optimal)
   search cost: model=14 compiles(no run) | oracle=14 timed runs; model decide wall=3ms
 
 ### subgraph: fp32_block  (2 layers)
-  L(R2048xC1024 NOUT64 float32): none(w8)=1.535 greedy(w64)=4.431 model(w32)=5.979 oracle(w16)=1.363 | reject_greedy=True reason=spill
-  L(R2048xC1024 NOUT128 float32): none(w8)=3.857 greedy(w128)=33.399 model(w32)=7.511 oracle(w16)=3.090 | reject_greedy=True reason=spill
-  TOTALS ms: none=5.392 greedy=37.830 model=13.490 oracle=4.453
-  model vs greedy: 2.80x faster | model vs oracle: 3.029x of oracle (1.0=optimal)
-  search cost: model=9 compiles(no run) | oracle=9 timed runs; model decide wall=17ms
+  L(R2048xC1024 NOUT64 float32): none(w8)=1.582 greedy(w64)=1.568 model(w32)=1.300 oracle(w32)=1.300 | reject_greedy=True reason=spill
+  L(R2048xC1024 NOUT128 float32): none(w8)=3.034 greedy(w128)=28.956 model(w32)=2.806 oracle(w32)=2.806 | reject_greedy=True reason=spill
+  TOTALS ms: none=4.616 greedy=30.523 model=4.106 oracle=4.106
+  model vs greedy: 7.43x faster | model vs oracle: 1.000x of oracle (1.0=optimal)
+  search cost: model=9 compiles(no run) | oracle=9 timed runs; model decide wall=19ms
 
 === RQ4 summary ===
-  wide_multiproj  : model 9.85x vs greedy, 1.000x of oracle, 9 compiles vs 9 timed runs
-  mixed_widths    : model 6.61x vs greedy, 1.000x of oracle, 14 compiles vs 14 timed runs
-  fp32_block      : model 2.80x vs greedy, 3.029x of oracle, 9 compiles vs 9 timed runs
+  wide_multiproj  : model 9.72x vs greedy, 1.000x of oracle, 9 compiles vs 9 timed runs
+  mixed_widths    : model 6.17x vs greedy, 1.000x of oracle, 14 compiles vs 14 timed runs
+  fp32_block      : model 7.43x vs greedy, 1.000x of oracle, 9 compiles vs 9 timed runs

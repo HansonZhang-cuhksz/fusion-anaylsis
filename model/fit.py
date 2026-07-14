@@ -93,13 +93,15 @@ def prf(pred, true):
 
 
 def nondegenerate(df):
-    """Drop reduction rows whose 'unfused' plan is a single launch identical to the fused kernel
-    (n_launches_unfused <= 1, i.e. GS >= NOUT). There the fused-vs-unfused comparison is a no-op and
-    the beneficial label is pure timing noise, so it must not be scored as a fusion decision.
-    Returns (filtered_df, n_dropped)."""
+    """Drop rows whose 'unfused' plan is a single launch identical to the fused kernel
+    (n_launches_unfused <= 1). There is nothing to fuse, so the fused-vs-unfused comparison is a
+    no-op and the beneficial label is pure timing noise -- it must not be scored as a fusion
+    decision. This is the real defect condition (review item 7), independent of family: it catches
+    reduction NOUT<=GS AND pointwise K=1 (a single elementwise op is not a fusion). Returns
+    (filtered_df, n_dropped)."""
     if "n_launches_unfused" not in df.columns:
         return df, 0
-    deg = (df["family"] == "reduction") & (df["n_launches_unfused"] <= 1)
+    deg = df["n_launches_unfused"] <= 1
     return df[~deg], int(deg.sum())
 
 
@@ -121,8 +123,8 @@ def main(csv):
     # fuse/don't-fuse decision -- exclude them from all decision metrics below.
     dfe, n_deg = nondegenerate(df)
     if n_deg:
-        print(f"\n[fit] excluding {n_deg} degenerate no-op rows (reduction, n_launches_unfused<=1, "
-              f"NOUT<=GS) from decision scoring; {len(dfe)} genuine cases remain.")
+        print(f"\n[fit] excluding {n_deg} degenerate no-op rows (n_launches_unfused<=1: pointwise "
+              f"K=1 and/or reduction NOUT<=GS) from decision scoring; {len(dfe)} genuine cases remain.")
 
     pred, true = decisions(dfe, k)
     m = prf(pred, true)

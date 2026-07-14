@@ -27,31 +27,32 @@ A complete search-free fusion-decision pipeline, all under `fusion/` + `model/`:
 Each family provides fused and unfused implementations computing identical math (verified `allclose`,
 max|Δ|=0), so the fused-vs-unfused latency comparison is fair.
 
-## 3. Dataset (`data/microbench_timing.csv`, 88 rows; 72 genuine + 16 degenerate no-ops)
-Families P (48) + R (40) = 88 raw rows. **16 R-rows (NOUT∈{8,16}) are degenerate no-ops** (with
-GS=16 the "unfused" plan is a single launch identical to the fused kernel), excluded from decision
-scoring ⇒ **72 genuine cases (52 beneficial / 20 toxic)**. Powers-of-two NOUT only (Triton
-`tl.arange` width must be pow2 — this is why NOUT∈{48,96} were skipped).
+## 3. Dataset (`data/microbench_timing.csv`, 72 rows; 64 genuine + 8 degenerate no-ops)
+Families P (48) + R (24) = 72 raw rows. **8 P-rows (pointwise K=1) are degenerate no-ops** (a single
+elementwise op is not a fusion; `n_launches_unfused=1`, so the "unfused" plan is a single launch
+identical to the fused kernel), excluded from decision scoring ⇒ **64 genuine cases (47 beneficial /
+17 toxic)**. Reduction now sweeps NOUT∈{32,64,128} only (the degenerate NOUT∈{8,16} rows removed at
+source); pointwise sweeps K∈{1,2,4,8,16,32}. Powers-of-two NOUT only (Triton `tl.arange` width must
+be pow2 — this is why NOUT∈{48,96} were skipped).
 
 ### Headline finding — the spill cliff drives toxicity (clean beneficial→toxic crossover)
-sibling-reduction, fp16, R=C=2048, GS=16:
+sibling-reduction, fp16, R=C=2048, GS=16 (regenerated 72-row dataset; matrix starts at NOUT=32):
 | NOUT | f_regs | f_spills | analytic occ | speedup | beneficial |
 |---|---|---|---|---|---|
-| 8  | 128 | 0 | 0.33 | 1.19× | ✓ |
-| 16 | 128 | 0 | 0.33 | 0.93× | ~ |
-| 32 | 255 | 0 | 0.17 | 1.09× | ✓ |
+| 32 | 255 | 0 | 0.17 | 1.29× | ✓ |
 | 64 | 255 | **300** | 0.17 | **0.06×** | ✗ toxic |
-| 128| 40  | **1986** | 1.00(nominal) | **0.005×** | ✗ toxic |
+| 128| 40  | **1986** | 1.00(nominal) | **0.008×** | ✗ toxic |
 
-- **Every one of the 16 spilled fused kernels is toxic** (speedup < 0.1). Spills are a near-perfect
-  static toxicity signal. **fp16 and fp32 both first spill at the same NOUT=64** in this sweep (fp16
-  300 / fp32 310 spills at the cliff); fp32 spills marginally more per case but does **not** cross at
-  a smaller NOUT.
-- **NOUT=8 and 16 are degenerate no-ops** (with GS=16 the unfused plan is a single launch identical
-  to the fused kernel), so their speedups above (1.19×, 0.93×) are timing noise, not fusion
-  decisions — they are excluded from the decision metrics (see `REVIEW_FINDINGS_TODO` item 7; matrix
-  now starts at NOUT=32). The genuine crossover is **NOUT=32 (beneficial, no spill) → NOUT=64
-  (toxic, spills)**.
+- **Every one of the 16 spilled fused kernels is toxic** (speedup < 0.1; NOUT∈{64,128} × 2 dtypes ×
+  4 shapes). Spills are a near-perfect static toxicity signal. **fp16 and fp32 both first spill at the
+  same NOUT=64** (fp16 300 / fp32 310 spills at the cliff); fp32 spills marginally more per case but
+  does **not** cross at a smaller NOUT. The genuine crossover is **NOUT=32 (beneficial, no spill) →
+  NOUT=64 (toxic, spills)**.
+- **Degenerate no-ops excluded from decision scoring:** with GS≥NOUT the "unfused" plan is a single
+  launch identical to the fused kernel, so its label is timing noise. On the clean 72-row dataset
+  these are the **8 pointwise K=1 rows** (a single elementwise op is not a fusion, `n_launches=1`);
+  the old NOUT∈{8,16} reduction no-ops are gone (matrix now starts at NOUT=32). `model/fit.py`
+  excludes any `n_launches_unfused≤1` row (see `REVIEW_FINDINGS_TODO` item 7 + A1).
 - **The NOUT=128 nuance:** ptxas caps registers at 40 and spills massively (1986), so the
   *register-based* occupancy reads a misleading 1.00 — yet it is the most toxic case (200× slower).
   ⇒ **the spill count must override register-derived occupancy.** The model encodes exactly this
@@ -65,29 +66,32 @@ Model (faithful to PROPOSAL §5.2, extended so the memory/latency-bound regime i
 
 Fitted on Ada (combined ratio+abs-time objective; occ_knee physically bounded to [0.08,0.35] since
 memory-bound Ada saturates HBM by ~⅓ occupancy):
-- **B_peak ≈ 152–254 GB/s** (physically correct for a 4060 laptop, 128-bit GDDR6) — a good sanity check.
+- **B_peak ≈ 151 GB/s** (physically correct for a 4060 laptop, 128-bit GDDR6) — a good sanity check.
 - occ_knee → floor (0.08): occupancy above ~8% does not drive toxicity here; **spills do**.
 
 ### RQ1 — toxic-fusion decision quality (positive class = "don't fuse")
 | | precision | recall | F1 | acc |
 |---|---|---|---|---|
-| **cost model (pooled shape-CV, 72 genuine cases)** | 0.833 | **1.000** | **0.909** | 0.944 |
-| greedy-always-fuse baseline | 0.000 | 0.000 | 0.000 | 0.722 |
+| **cost model (in-sample, 64 genuine cases)** | **1.000** | 0.941 | **0.970** | 0.984 |
+| greedy-always-fuse baseline | 0.000 | 0.000 | 0.000 | 0.734 |
 
-- **Recall = 1.0**: catches *all* toxic fusions (0 false negatives — never keeps a toxic fusion).
-- The 4 false positives are pointwise K=1 cases (speedup 1.00–1.02) where the label is genuinely
-  marginal — a conservative, safe failure mode for a compiler pass.
+- **Recall = 0.941**: catches 16/17 toxic fusions. The single error is one false negative — a
+  sibling_redux NOUT=32, fp16, R=C=1024 case (speedup 0.906, spills=0), a borderline ~9% slowdown
+  with **no spill signal** the spill-focused model cannot catch (its honest blind spot for mild
+  non-spill toxicity).
+- **Precision = 1.000**: 0 false positives — no beneficial fusion is wrongly vetoed. (The old
+  pointwise K=1 "false positives" are gone: those degenerate no-ops are now excluded from scoring.)
 - **Caveat on this "held-out-shape" CV:** it holds out (R,C), but spills — the toxicity driver — are
-  *identical* across shapes, so pooled CV == in-sample; it tests robustness to matrix size, not to
-  the register/spill regime. The honest held-out-decision-variable CVs (LOG-03): leave-one-NOUT-out
-  F1=1.00, leave-one-dtype-out F1=0.91 (recall stays 1.00 in both).
+  *identical* across shapes, so pooled shape-CV ≈ in-sample; it tests robustness to matrix size, not
+  to the register/spill regime. The honest held-out-decision-variable CVs (LOG-03): leave-one-NOUT-out
+  F1=0.829 (recall 1.000), leave-one-dtype-out F1=0.970 (recall 0.941).
 
 ### Ablations (which interpretable term matters)
 | ablation | F1 | reading |
 |---|---|---|
-| full model | 0.91 | — |
-| **drop spill term** | **0.55** | spills are the dominant toxic signal |
-| drop smooth-occupancy (occ=1) | 0.91 | the smooth P_occ term is negligible on Ada |
+| full model | 0.97 | — |
+| **drop spill term** | **0.545** | spills are the dominant toxic signal |
+| drop smooth-occupancy (occ=1) | 0.97 | the smooth P_occ term is negligible on Ada |
 
 ⇒ On Ada, the interpretable signal that matters is the **spill discontinuity**, not the smooth
 occupancy curve — matching the proposal's emphasis on the spill cliff.

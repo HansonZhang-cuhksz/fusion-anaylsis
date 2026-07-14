@@ -142,7 +142,7 @@ item 7; the no-GPU parts (source fix in `fusion/matrix.py`, decision-scoring exc
 `model/fit.py`, all doc rewrites) are already DONE and committed. Nothing here blocks the MetaX/C500
 phase — it can be done any time on Ada.*
 
-- [ ] **A1. Regenerate the degenerate-free dataset on Ada and re-fit the deployed constants.**
+- [x] **A1. Regenerate the degenerate-free dataset on Ada and re-fit the deployed constants.**
 
   **Why this exists.** Review item 7 found 16 degenerate no-op rows (NOUT∈{8,16}: with GS=16 the
   "unfused" plan is a single launch identical to the fused kernel; 9 were noise-labeled toxic). On
@@ -156,9 +156,10 @@ phase — it can be done any time on Ada.*
     "total cases: 72 (pointwise=48, reduction=24)".
   - `model/fit.py`: has `nondegenerate()`, fits on full data but scores decisions on the genuine
     subset (prints "excluding N degenerate no-op rows").
-  - `model/ada_constants.json`: still the **88-row-fit** constants (gamma_spill=0.08869,
-    B_peak=1.524e11, T_launch=8.16e-5, beta_layout=0.40561). `data/*.csv`, `logs/run_*.log`,
-    `figures/*.png` were all produced on the OLD 88-row dataset with those constants.
+  - `model/ada_constants.json`: **[A1 DONE] now the clean 72-row-fit constants** (gamma_spill=0.0807,
+    B_peak=1.51e11, T_launch=4.43e-5, beta_layout=0.327); the pre-A1 88-row fit was gamma_spill=0.0887,
+    B_peak=1.524e11, T_launch=8.16e-5, beta_layout=0.406. `data/*.csv`, `logs/run_*.log`,
+    `figures/*.png` were regenerated on the clean 72-row dataset with the new constants.
 
   **Steps (Ada machine, env `profiling`; `source tooling/env.sh` first):**
   1. `python -m fusion.runner data/microbench_timing.csv` → expect **72 rows** (no NOUT∈{8,16}).
@@ -190,6 +191,19 @@ phase — it can be done any time on Ada.*
   **Lighter alternative (not recommended):** keep the committed 88-row-fit constants and only
   regenerate `microbench_timing.csv` to 72 rows — but then the constants no longer correspond to a
   fit on the committed dataset, so the full re-fit path above is cleaner.
+
+  **DONE (Ada session 2026-07-14):** regenerated `microbench_timing.csv` to **72 rows** (static
+  regs/spills matched the committed rows exactly, **0 mismatches**); re-fit the deployed constants
+  (gamma_spill 0.0887→**0.0807**, T_launch 8.16e-5→**4.43e-5**, B_peak **1.51e11**, C_peak 4.18e11).
+  **GENERALIZED** `nondegenerate()` from reduction-only to `n_launches_unfused<=1` (ANY family) — it
+  now excludes the **8 pointwise K=1 no-ops** the regen exposed (reduction has no degenerates on the
+  clean data). Re-ran `profile_layout` (beta_layout 0.406→**0.327**, 4/4 layout), `rq2` (occupancy
+  22/22, attribution 12/12 — unchanged), `endtoend` (**model=oracle on all 3 subgraphs** — the old
+  fp32 3.03× artifact is gone; **NO RQ4 width decision flipped**), and figures. **NEW headline:** RQ1
+  in-sample **F1=0.970 / P=1.000 / R=0.941** (1 FN — a borderline no-spill NOUT=32 case, speedup 0.91);
+  leave-one-NOUT-out **F1=0.829**, leave-one-dtype-out **F1=0.970**; RQ2 **12/12**; RQ4
+  **model=oracle on all 3**, **6.2–9.7× vs greedy**. **Recall is no longer a blanket 1.000.** Item 7's
+  "Ada-dependent remainder" is now resolved.
 
 ---
 
