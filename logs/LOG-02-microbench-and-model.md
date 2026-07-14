@@ -27,9 +27,11 @@ A complete search-free fusion-decision pipeline, all under `fusion/` + `model/`:
 Each family provides fused and unfused implementations computing identical math (verified `allclose`,
 max|Δ|=0), so the fused-vs-unfused latency comparison is fair.
 
-## 3. Dataset (`data/microbench_timing.csv`, 88 rows)
-Families P (48) + R (40); 59 beneficial / 29 toxic. Powers-of-two NOUT only (Triton `tl.arange`
-width must be pow2 — this is why NOUT∈{48,96} were skipped).
+## 3. Dataset (`data/microbench_timing.csv`, 88 rows; 72 genuine + 16 degenerate no-ops)
+Families P (48) + R (40) = 88 raw rows. **16 R-rows (NOUT∈{8,16}) are degenerate no-ops** (with
+GS=16 the "unfused" plan is a single launch identical to the fused kernel), excluded from decision
+scoring ⇒ **72 genuine cases (52 beneficial / 20 toxic)**. Powers-of-two NOUT only (Triton
+`tl.arange` width must be pow2 — this is why NOUT∈{48,96} were skipped).
 
 ### Headline finding — the spill cliff drives toxicity (clean beneficial→toxic crossover)
 sibling-reduction, fp16, R=C=2048, GS=16:
@@ -42,7 +44,14 @@ sibling-reduction, fp16, R=C=2048, GS=16:
 | 128| 40  | **1986** | 1.00(nominal) | **0.005×** | ✗ toxic |
 
 - **Every one of the 16 spilled fused kernels is toxic** (speedup < 0.1). Spills are a near-perfect
-  static toxicity signal. fp32 crosses earlier than fp16 (more registers/element).
+  static toxicity signal. **fp16 and fp32 both first spill at the same NOUT=64** in this sweep (fp16
+  300 / fp32 310 spills at the cliff); fp32 spills marginally more per case but does **not** cross at
+  a smaller NOUT.
+- **NOUT=8 and 16 are degenerate no-ops** (with GS=16 the unfused plan is a single launch identical
+  to the fused kernel), so their speedups above (1.19×, 0.93×) are timing noise, not fusion
+  decisions — they are excluded from the decision metrics (see `REVIEW_FINDINGS_TODO` item 7; matrix
+  now starts at NOUT=32). The genuine crossover is **NOUT=32 (beneficial, no spill) → NOUT=64
+  (toxic, spills)**.
 - **The NOUT=128 nuance:** ptxas caps registers at 40 and spills massively (1986), so the
   *register-based* occupancy reads a misleading 1.00 — yet it is the most toxic case (200× slower).
   ⇒ **the spill count must override register-derived occupancy.** The model encodes exactly this
@@ -62,19 +71,23 @@ memory-bound Ada saturates HBM by ~⅓ occupancy):
 ### RQ1 — toxic-fusion decision quality (positive class = "don't fuse")
 | | precision | recall | F1 | acc |
 |---|---|---|---|---|
-| **cost model (pooled held-out-shape CV)** | 0.725 | **1.000** | **0.841** | 0.875 |
-| greedy-always-fuse baseline | 0.000 | 0.000 | 0.000 | 0.670 |
+| **cost model (pooled shape-CV, 72 genuine cases)** | 0.833 | **1.000** | **0.909** | 0.944 |
+| greedy-always-fuse baseline | 0.000 | 0.000 | 0.000 | 0.722 |
 
 - **Recall = 1.0**: catches *all* toxic fusions (0 false negatives — never keeps a toxic fusion).
-- False positives are the near-break-even cases (speedup ∈ [0.93,1.09]) where the label is genuinely
+- The 4 false positives are pointwise K=1 cases (speedup 1.00–1.02) where the label is genuinely
   marginal — a conservative, safe failure mode for a compiler pass.
+- **Caveat on this "held-out-shape" CV:** it holds out (R,C), but spills — the toxicity driver — are
+  *identical* across shapes, so pooled CV == in-sample; it tests robustness to matrix size, not to
+  the register/spill regime. The honest held-out-decision-variable CVs (LOG-03): leave-one-NOUT-out
+  F1=1.00, leave-one-dtype-out F1=0.91 (recall stays 1.00 in both).
 
 ### Ablations (which interpretable term matters)
 | ablation | F1 | reading |
 |---|---|---|
-| full model | 0.84 | — |
-| **drop spill term** | **0.49** | spills are the dominant toxic signal |
-| drop smooth-occupancy (occ=1) | 0.84 | the smooth P_occ term is negligible on Ada |
+| full model | 0.91 | — |
+| **drop spill term** | **0.55** | spills are the dominant toxic signal |
+| drop smooth-occupancy (occ=1) | 0.91 | the smooth P_occ term is negligible on Ada |
 
 ⇒ On Ada, the interpretable signal that matters is the **spill discontinuity**, not the smooth
 occupancy curve — matching the proposal's emphasis on the spill cliff.
@@ -98,6 +111,12 @@ its different memory subsystem may let P_layout actually flip decisions (the dec
 - ncu profiled setup/curand kernels → filter with `-k regex:(...)` + `compile_probe=False` build path
   so ncu sees only the plan's own launches.
 - `torch load_inline` + CUDA 12.8 vs GCC-14 → pass `-ccbin <conda gcc-11>` in `extra_cuda_cflags`.
+- **ncu duration units:** `gpu__time_duration.sum` with `--print-units base` is in **nanoseconds**
+  (the CSV column is `f_dur_ns`; it was mislabeled `f_dur_us`). This column is informational only —
+  it is **not** consumed by the cost model. It also diverges from the event-timed latency for the
+  extreme-spill case (ncu ~71 ms kernel duration vs ~1265 ms event-timed at NOUT=128, R=C=2048),
+  because ncu reports isolated kernel time under clock-controlled replay, not the free-running loop;
+  root-causing the gap would need Ada re-profiling and is not needed (duration is unused).
 
 ## 7. Next (this session)
 - Finish ncu ground-truth pass → RQ2 attribution accuracy + occupancy-model validation (running).

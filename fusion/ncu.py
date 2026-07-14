@@ -23,7 +23,7 @@ METRICS = {
     "bank_conf_st":      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum",
     "l2_sectors":        "lts__t_sectors.sum",
     "tensor_pct":        "sm__pipe_tensor_op_hmma_cycles_active.avg.pct_of_peak_sustained_active",
-    "duration_us":       "gpu__time_duration.sum",
+    "duration_ns":       "gpu__time_duration.sum",   # ncu base unit for time is NANOSECONDS
     "sm_busy_pct":       "sm__throughput.avg.pct_of_peak_sustained_elapsed",
     "dram_busy_pct":     "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed",
 }
@@ -82,15 +82,15 @@ def aggregate(kernels: list[dict]) -> dict:
     """Collapse a plan's per-kernel rows into plan-level features the model consumes."""
     if not kernels:
         return {}
-    total_dur = sum(k.get("duration_us", 0.0) for k in kernels)
+    total_dur = sum(k.get("duration_ns", 0.0) for k in kernels)
     total_dram = sum(k.get("dram_bytes", 0.0) for k in kernels)
     total_local = sum(k.get("local_ld_bytes", 0.0) + k.get("local_st_bytes", 0.0) for k in kernels)
     total_bank = sum(k.get("bank_conf_ld", 0.0) + k.get("bank_conf_st", 0.0) for k in kernels)
     # the "signature" kernel = the longest-running one (dominates the plan)
-    sig = max(kernels, key=lambda k: k.get("duration_us", 0.0))
+    sig = max(kernels, key=lambda k: k.get("duration_ns", 0.0))
     return {
         "n_kernels": len(kernels),
-        "dur_us_total": total_dur,
+        "dur_ns_total": total_dur,            # nanoseconds (ncu gpu__time_duration, base units)
         "dram_bytes_total": total_dram,
         "local_bytes_total": total_local,     # spill traffic (P_occ ground truth)
         "bank_conf_total": total_bank,        # bank conflicts (P_layout ground truth)

@@ -92,6 +92,17 @@ def prf(pred, true):
     return dict(precision=prec, recall=rec, f1=f1, accuracy=acc, tp=tp, fp=fp, fn=fn, tn=tn)
 
 
+def nondegenerate(df):
+    """Drop reduction rows whose 'unfused' plan is a single launch identical to the fused kernel
+    (n_launches_unfused <= 1, i.e. GS >= NOUT). There the fused-vs-unfused comparison is a no-op and
+    the beneficial label is pure timing noise, so it must not be scored as a fusion decision.
+    Returns (filtered_df, n_dropped)."""
+    if "n_launches_unfused" not in df.columns:
+        return df, 0
+    deg = (df["family"] == "reduction") & (df["n_launches_unfused"] <= 1)
+    return df[~deg], int(deg.sum())
+
+
 def main(csv):
     df = pd.read_csv(csv)
     print(f"[fit] {len(df)} rows | toxic(don't-fuse)={int((df.beneficial==0).sum())} "
@@ -103,14 +114,24 @@ def main(csv):
     print(json.dumps(k.as_dict(), indent=2))
     print(f"fit log-MSE(time) = {l:.4f}")
 
-    pred, true = decisions(df, k)
+    # ---- degenerate-row filter for DECISION scoring --------------------------------
+    # The roofline FIT above uses all rows (they are near-neutral; full-data fit reproduces the
+    # deployed constants exactly). But rows where the unfused plan is a no-op copy of the fused
+    # kernel (n_launches_unfused<=1, NOUT<=GS) carry a noise label and must not be scored as a
+    # fuse/don't-fuse decision -- exclude them from all decision metrics below.
+    dfe, n_deg = nondegenerate(df)
+    if n_deg:
+        print(f"\n[fit] excluding {n_deg} degenerate no-op rows (reduction, n_launches_unfused<=1, "
+              f"NOUT<=GS) from decision scoring; {len(dfe)} genuine cases remain.")
+
+    pred, true = decisions(dfe, k)
     m = prf(pred, true)
-    print("\n=== RQ1: toxic-fusion DECISION quality (in-sample) ===")
+    print("\n=== RQ1: toxic-fusion DECISION quality (in-sample, genuine cases) ===")
     print(f"precision={m['precision']:.3f} recall={m['recall']:.3f} F1={m['f1']:.3f} "
           f"acc={m['accuracy']:.3f}  (TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']})")
 
     # ---- baselines ----
-    greedy = np.zeros(len(df))  # always fuse -> never predicts toxic
+    greedy = np.zeros(len(dfe))  # always fuse -> never predicts toxic
     mg = prf(greedy, true)
     print("\n=== baselines ===")
     print(f"greedy-always-fuse: F1={mg['f1']:.3f} acc={mg['accuracy']:.3f} "
@@ -118,39 +139,77 @@ def main(csv):
 
     # ---- held-out-shape cross validation ----
     print("\n=== RQ1: held-out-shape cross-validation ===")
-    shapes = sorted(df.apply(lambda r: (r["R"], r["C"]), axis=1).unique())
-    accs, f1s = [], []
+    shapes = sorted(dfe.apply(lambda r: (r["R"], r["C"]), axis=1).unique())
     allp, allt = [], []
     for held in shapes:
-        te = df[df.apply(lambda r: (r["R"], r["C"]) == held, axis=1)]
-        tr = df[df.apply(lambda r: (r["R"], r["C"]) != held, axis=1)]
+        te = dfe[dfe.apply(lambda r: (r["R"], r["C"]) == held, axis=1)]
+        tr = dfe[dfe.apply(lambda r: (r["R"], r["C"]) != held, axis=1)]
         kk, _ = fit(tr, restarts=3)
         p, t = decisions(te, kk)
         mm = prf(p, t)
-        accs.append(mm["accuracy"]); f1s.append(mm["f1"])
         allp.extend(p); allt.extend(t)
         print(f"  held-out R{held[0]}xC{held[1]} (n={len(te)}): acc={mm['accuracy']:.3f} F1={mm['f1']:.3f}")
-    allp, allt = np.array(allp), np.array(allt)
-    mcv = prf(allp, allt)
+    mcv = prf(np.array(allp), np.array(allt))
     print(f"  pooled CV: precision={mcv['precision']:.3f} recall={mcv['recall']:.3f} "
           f"F1={mcv['f1']:.3f} acc={mcv['accuracy']:.3f}")
+    print("  NOTE: spills (the toxicity driver) are identical across (R,C) shapes, so this CV is")
+    print("        ~ in-sample w.r.t. the decision. The stronger CVs below hold out the variables")
+    print("        that actually change spills (NOUT, dtype).")
+
+    # ---- held-out-DECISION-VARIABLE cross validation (the honest generalization test) ----
+    # Folds on the variables that move register pressure / spills, not on (R,C) which does not.
+    print("\n=== RQ1: held-out-DECISION-VARIABLE cross-validation ===")
+    # leave-one-NOUT-out over the reduction family: each NOUT is a distinct spill regime.
+    gp, gt = [], []
+    for no in sorted(int(x) for x in dfe["param_NOUT"].dropna().unique()):
+        te = dfe[dfe["param_NOUT"] == no]
+        tr = dfe[(dfe["param_NOUT"] != no) | (dfe["param_NOUT"].isna())]
+        kk, _ = fit(tr, restarts=3)
+        p, t = decisions(te, kk); gp.extend(p); gt.extend(t)
+        mm = prf(p, t)
+        print(f"  held-out NOUT={no} (n={len(te)}): F1={mm['f1']:.3f} recall={mm['recall']:.3f}")
+    mno = prf(np.array(gp), np.array(gt))
+    print(f"  leave-one-NOUT-out POOLED: precision={mno['precision']:.3f} recall={mno['recall']:.3f} "
+          f"F1={mno['f1']:.3f} acc={mno['accuracy']:.3f}")
+    # leave-one-dtype-out: fp16 <-> fp32 calibration transfer (the honest generalization cost).
+    gp, gt = [], []
+    for dt in sorted(dfe["dtype"].unique()):
+        te = dfe[dfe["dtype"] == dt]; tr = dfe[dfe["dtype"] != dt]
+        kk, _ = fit(tr, restarts=3)
+        p, t = decisions(te, kk); gp.extend(p); gt.extend(t)
+        mm = prf(p, t)
+        print(f"  held-out dtype={dt} (n={len(te)}): F1={mm['f1']:.3f} recall={mm['recall']:.3f}")
+    mdt = prf(np.array(gp), np.array(gt))
+    print(f"  leave-one-dtype-out POOLED: precision={mdt['precision']:.3f} recall={mdt['recall']:.3f} "
+          f"F1={mdt['f1']:.3f} acc={mdt['accuracy']:.3f}")
 
     # ---- ablations ----
-    print("\n=== ablations (in-sample) ===")
+    print("\n=== ablations (in-sample, genuine cases) ===")
     # no-spill: zero out spill feature
-    df_ns = df.copy(); df_ns["f_spills"] = 0; df_ns["u_spills"] = 0
+    df_ns = dfe.copy(); df_ns["f_spills"] = 0; df_ns["u_spills"] = 0
     kns, _ = fit(df_ns, restarts=3)
     p, t = decisions(df_ns, kns)
     print(f"  drop spill term: F1={prf(p,t)['f1']:.3f} (spills are the dominant toxic signal)")
     # no-P_occ: force occupancy to 1 everywhere
-    df_no = df.copy(); df_no["f_occ"] = 1.0; df_no["u_occ"] = 1.0
+    df_no = dfe.copy(); df_no["f_occ"] = 1.0; df_no["u_occ"] = 1.0
     kno, _ = fit(df_no, restarts=3)
     p, t = decisions(df_no, kno)
     print(f"  drop P_occ (occ=1): F1={prf(p,t)['f1']:.3f}")
 
-    # persist fitted constants
+    # persist fitted constants -- preserve fields this fit does NOT calibrate (e.g. beta_layout,
+    # which is fit separately on the layout microbench by fusion/profile_layout.py) so that
+    # re-running fit after profile_layout does not clobber the layout calibration back to default.
+    out = k.as_dict()
+    try:
+        with open("model/ada_constants.json") as f:
+            prev = json.load(f)
+        for key in ("beta_layout",):
+            if key in prev:
+                out[key] = prev[key]
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
     with open("model/ada_constants.json", "w") as f:
-        json.dump(k.as_dict(), f, indent=2)
+        json.dump(out, f, indent=2)
     print("\n[fit] wrote model/ada_constants.json")
 
 

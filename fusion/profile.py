@@ -68,7 +68,7 @@ def main(out_csv: str):
                 "f_spill_bytes": fk.get("sig_local_bytes", 0.0),
                 "f_bank_conf": fk.get("sig_bank_conf", 0.0),
                 "f_dram_bytes": fk.get("dram_bytes_total", 0.0),
-                "f_dur_us": fk.get("dur_us_total", 0.0),
+                "f_dur_ns": fk.get("dur_ns_total", 0.0),   # nanoseconds (was mislabeled _us)
                 # ncu unfused
                 "u_spill_bytes": uk.get("local_bytes_total", 0.0),
                 "u_bank_conf": uk.get("bank_conf_total", 0.0),

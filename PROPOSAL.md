@@ -17,7 +17,7 @@ v1 ("Beyond the Fusion Silver Bullet") proposed a *grand unified framework* — 
 | GNN surrogate pillar | **dropped** (or optional stretch goal) | redundant with the analytical model and with TpuGraphs; a hedge, not a contribution |
 | "first comprehensive taxonomy" | **interpretable + cross‑vendor transfer** as the novelty | this is the slice the frontier has *not* nailed |
 
-**One‑line thesis (v2):** *A compiler can decide — at compile time, without autotuning search — whether fusing two operators is net‑harmful, attribute the harm to a specific microarchitectural cause (occupancy loss vs layout/bank‑conflict cost), and this single interpretable criterion transfers from a flagship NVIDIA GPU to a domestic accelerator by re‑parameterization rather than retraining.*
+**One‑line thesis (v2):** *A compiler can decide — at compile time, without autotuning search — whether fusing two operators is net‑harmful, attribute the harm to a specific microarchitectural cause (occupancy loss vs layout/bank‑conflict cost), and this single interpretable criterion transfers from a consumer NVIDIA Ada GPU (RTX 4060) to a domestic accelerator by re‑parameterization rather than retraining.*
 
 ---
 
@@ -139,19 +139,19 @@ Legend: **[ADA]** = do on the Ada machine's Claude Code session · **[MX]** = do
 - [x] Set up Ada env: torch/Triton/`nvcc`/`ncu` in conda env `profiling`; **ncu counters work under WSL2** (`--target-processes all`); nvcc host-compiler pinned to conda gcc-11 (`tooling/env.sh`)
 - [x] `tooling/check_profiling_stack_nvidia.sh` (NVIDIA analogue, PASS=11/0/0); `-Xptxas -v` register/spill/occupancy captured; Triton `n_regs`/`n_spills` as the single-compile static input
 - [x] Microbench matrix in Triton (families P pointwise, R sibling-reduction) + raw CUDA (family T transpose/bank-conflict)
-- [x] Automated `ncu` → vendor-neutral dataset (`data/microbench_timing.csv` 88 rows + `data/microbench_ncu.csv`), with `beneficial?` + `dominant_penalty`
+- [x] Automated `ncu` → vendor-neutral dataset (`data/microbench_timing.csv` 88 rows; 72 genuine + 16 degenerate no-ops excluded from scoring, plus `data/microbench_ncu.csv`), with `beneficial?` + `dominant_penalty`
 - **DoD:** ✅ reproducible dataset with per-fusion ground-truth label + dominant penalty
 
 ### Phase 2 — Model formalization & fit  **[ADA]** ✅ DONE (LOG-02, LOG-03)
-- [x] Φ(v) taxonomy + tile/layout descriptors (`fusion/kernels/base.py`); analytical sm89 occupancy (`fusion/hw.py`) validated exact vs ncu
+- [x] Φ(v) taxonomy + tile/layout descriptors (`fusion/kernels/base.py`); analytical sm89 occupancy (`fusion/hw.py`) reproduces ncu *theoretical* occupancy exactly (the CUDA occupancy calculator; *achieved* occupancy is handled by the spill term, not predicted)
 - [x] `η_fused = min·P_occ·P_layout` from single-compile inputs (`model/costmodel.py`); `P_occ` (occupancy+spill), `P_layout` (bank-conflict) calibrated on Ada
-- [x] **RQ1: F1=0.84, recall=1.00 (held-out-shape CV)**; **RQ2a occupancy MAE=0.000**; **RQ2b attribution 12/12**
-- [x] Ablations: drop-spill F1→0.49 (spills dominant), drop-occupancy F1=0.84; vs greedy F1=0.00
-- **DoD:** ✅ strong held-out F1; attribution matches profiler
+- [x] **RQ1 (72 genuine cases): recall=1.00 in every CV; F1 0.91 shape-CV / 1.00 leave-one-NOUT-out / 0.91 leave-one-dtype-out**; **RQ2a occupancy MAE=0.000 vs ncu theoretical**; **RQ2b attribution 12/12**
+- [x] Ablations: drop-spill F1→0.55 (spills dominant), drop-occupancy F1=0.91; vs greedy F1=0.00
+- **DoD:** ✅ recall=1.00 in every CV; F1 robust to held-out NOUT (1.00) and held-out dtype (0.91), on the 72 genuine cases; attribution matches profiler
 
 ### Phase 3 — Compiler pass & end‑to‑end  **[ADA]** ✅ DONE (LOG-03)
 - [x] Offline recommender (`model/recommender.py`) — the PROPOSAL §5.4 sanctioned fallback; decides from single-compile static resource reports
-- [x] End-to-end on 3 subgraphs vs greedy/oracle/none (`fusion/endtoend.py`): **model up to 9.85× vs greedy, = oracle on fp16**; decide wall ≤26 ms (compiles only, no timing)
+- [x] End-to-end on 3 subgraphs vs greedy/oracle/none (`fusion/endtoend.py`): **model up to 9.85× vs greedy** (a constructed worst-case for greedy — subgraphs built with wide over-fused layers), **= oracle on fp16**, **3.03× off oracle on fp32** (honest limit); decide wall ≤26 ms (compiles only, no timing)
 - [x] Frozen model spec (`model/MODEL_SPEC.md`) + fitted constants (`model/ada_constants.json`)
 - **DoD:** ✅ end-to-end speedup on ≥2 subgraphs; frozen spec ready for MX phase
 

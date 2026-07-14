@@ -13,7 +13,12 @@ _P_DTYPE = ["float16", "float32"]
 
 # --- Family R: sibling reductions (P_occ / spill knob) ---------------------------
 _R_SHAPES = [(1024, 1024), (2048, 2048), (4096, 1024), (2048, 4096)]
-_R_NOUT = [8, 16, 32, 64, 128]   # powers of 2 only (Triton tl.arange width must be pow2)
+# NOUT must be strictly greater than the unfused group size GS, else the unfused plan is a single
+# launch identical to the fused kernel (n_launches_unfused==1) -- a degenerate no-op whose
+# fuse/don't-fuse label is pure timing noise. With GS=16 that means NOUT>=32. (NOUT=8,16 were
+# dropped for exactly this reason; see REVIEW_FINDINGS_TODO item 7.) Powers of 2 only (Triton
+# tl.arange width must be pow2).
+_R_NOUT = [32, 64, 128]
 _R_DTYPE = ["float16", "float32"]
 _R_GS = 16
 

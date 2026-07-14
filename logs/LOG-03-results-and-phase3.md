@@ -11,30 +11,43 @@ for the MetaX C500 transfer (Phase 4).
 ## Headline numbers
 | RQ | question | result |
 |---|---|---|
-| **RQ1** | predict fusion toxicity from static inputs? | held-out-shape CV **F1=0.84, recall=1.00, acc=0.88**; greedy baseline F1=0.00 |
-| **RQ2a** | analytical occupancy vs profiler? | **MAE = 0.000 pts, 22/22 exact** vs ncu theoretical occupancy |
+| **RQ1** | predict fusion toxicity from static inputs? | **recall=1.00 in every CV** (never keeps a toxic fusion); F1 **0.91** shape-CV / **1.00** leave-one-NOUT-out / **0.91** leave-one-dtype-out (on 72 genuine cases; 16 degenerate no-ops excluded); greedy F1=0.00 |
+| **RQ2a** | analytical occupancy == ncu *theoretical* occupancy? | **MAE=0.000, 22/22 exact** (reproduces the CUDA occupancy calculator by construction). *Achieved* occupancy differs 21.7 pts mean / 88 max — deliberately not predicted; the spill term captures the real harm |
 | **RQ2b** | attribute the cause (spill vs layout)? | **12/12 = 100%**: 8/8 spill-dominated + 4/4 layout-dominated |
-| **RQ4** | utility vs greedy / oracle? | model **2.8–9.85× faster than greedy**, **= oracle (1.00×) on fp16**, at ~0 timing cost |
+| **RQ4** | utility vs greedy / oracle? | model **2.8–9.85× faster than greedy** (9.85× is a constructed worst-case for greedy), **= oracle (1.00×) on fp16**, **3.03× off oracle on fp32**, at ~0 timing cost |
 
 ## RQ1 — search-free toxic-fusion decision
 - Cost model (`model/costmodel.py`) fit on Ada (`model/ada_constants.json`): **B_peak≈152 GB/s**
   (physically correct for a 4060 laptop), occ_knee→floor, gamma_spill≈0.089.
-- **precision 0.725 / recall 1.000 / F1 0.841 / acc 0.875** (in-sample == pooled held-out-shape CV).
-- **Recall = 1.0**: never keeps a toxic fusion (0 false negatives). The 11 false positives are all
-  near-break-even (measured speedup ∈ [0.93,1.09]) — a safe, conservative failure mode.
+- **precision 0.833 / recall 1.000 / F1 0.909 / acc 0.944** on the **72 genuine cases** (16
+  degenerate no-op rows — NOUT∈{8,16} where GS≥NOUT makes the "unfused" plan a single launch
+  identical to the fused kernel — excluded from decision scoring; their labels are timing noise, not
+  fusion decisions). In-sample == pooled held-out-**shape** CV (they coincide because spills, the
+  toxicity driver, are *identical* across (R,C) shapes, so the shape-CV is ~in-sample; it tests
+  robustness to matrix size, not to the register/spill regime).
+- **Honest held-out-decision-variable CV** (folds on the variables that actually move spills):
+  leave-one-NOUT-out **F1=1.000 / recall=1.000** (on this clean microbench the spill signal is a
+  perfect separator of the reduction cases); leave-one-dtype-out **F1=0.909 / recall=1.000** (fp16
+  held-out 0.957, fp32 held-out 0.857 — a mild fp16↔fp32 transfer cost). (Reproduce:
+  `python -m model.fit data/microbench_timing.csv`.)
+- **Recall = 1.0**: never keeps a toxic fusion (0 false negatives). The 4 false positives are all
+  pointwise K=1 cases (measured speedup 1.00–1.02) — near-break-even, a safe conservative failure mode.
 - **Ablations** isolate the interpretable driver:
   | model | F1 | reading |
   |---|---|---|
-  | full | 0.84 | — |
-  | drop spill term | **0.49** | spills are the dominant toxic signal |
-  | drop smooth-occupancy | 0.84 | the smooth P_occ term is negligible on Ada |
+  | full | 0.91 | — |
+  | drop spill term | **0.55** | spills are the dominant toxic signal |
+  | drop smooth-occupancy | 0.91 | the smooth P_occ term is negligible on Ada |
   ⇒ the decisive signal is the **register-spill discontinuity**, exactly the term PROPOSAL §5.2
   emphasises. `occ_knee` fitting to its floor is the model *telling us* occupancy≥8% doesn't gate these.
 
-## RQ2 — interpretability (validated against the profiler)
-- **Occupancy model exact** (`fig2`): analytical sm89 occupancy == ncu theoretical occupancy on all
-  22 profiled kernels (100↔100, 33↔33, 17↔17; even the deceptive 100% at NOUT=128 where ptxas caps
-  regs at 40 and spills 1986× — both agree, and the *spill* feature is what flags the harm).
+## RQ2 — interpretability (attribution validated against the profiler)
+- **Occupancy model reproduces the calculator** (`fig2`): analytical sm89 occupancy == ncu
+  *theoretical* occupancy on all 22 kernels (100↔100, 33↔33, 17↔17; even the deceptive 100% at
+  NOUT=128 where ptxas caps regs at 40 and spills 1986× — both agree, and the *spill* feature flags
+  the harm). This validates the calculator re-implementation, **not** achieved occupancy: measured
+  *achieved* occupancy differs by 21.7 pts mean / 88 max (deliberately not modelled — the spill term
+  handles the real degradation, which is why the deceptive NOUT=128 case is still caught).
 - **Attribution ground truth is cleanly separable:** spilled kernels move mean 1.0e10 B of local
   (spill) traffic; non-spilled move exactly 0. Toxic reductions → `dominant=spill` (8/8).
 - **Layout branch** (`fusion/cuda_layout.py`, raw CUDA via `load_inline`): a 32×32 shared-tile
@@ -70,7 +83,7 @@ the predicted decision-flip. (See `model/MODEL_SPEC.md §7`.)
 ## Artifacts produced
 - Code: `fusion/` (hw, static, kernels/{pointwise,reduction,transpose}, timing, runner, ncu*,
   profile*, endtoend, cuda_layout) + `model/` (costmodel, fit, recommender, rq2, figures, MODEL_SPEC).
-- Data: `data/microbench_timing.csv` (88 rows), `data/microbench_ncu.csv` (22), `data/cuda_layout.csv` (4).
+- Data: `data/microbench_timing.csv` (88 rows; 72 genuine cases scored + 16 degenerate no-ops excluded), `data/microbench_ncu.csv` (22), `data/cuda_layout.csv` (4).
 - Figures: `figures/fig1_spill_cliff.png`, `fig2_occupancy_validation.png`, `fig3_rq4_endtoend.png`.
 - Frozen spec + fitted constants: `model/MODEL_SPEC.md`, `model/ada_constants.json`.
 - Logs: `logs/run_timing_matrix.log`, `run_ncu_profile.log`, `run_endtoend.log`, `run_layout.log`.

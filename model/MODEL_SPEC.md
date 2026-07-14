@@ -15,7 +15,9 @@ Plus graph-level analytic quantities the compiler already has: `flops`, `bytes_f
 `bytes_unfused`, `n_launches_unfused`, and (if a transpose/permute edge) a bank-conflict/layout
 descriptor.
 
-## 2. Analytical occupancy (hw.py) — VALIDATED exact vs ncu theoretical (MAE 0.000, 22/22)
+## 2. Analytical occupancy (hw.py) — reproduces the ncu THEORETICAL occupancy calculator (MAE 0.000, 22/22)
+<!-- This validates the calculator re-implementation, NOT achieved occupancy (which differs 21.7 pts
+     mean / 88 max and is deliberately not predicted — the spill term captures the real degradation). -->
 `occupancy(regs, smem, threads)` on the sm89 `HardwareModel`:
 - warps/block = ceil(threads/32); registers/warp = ceil(regs·32, 256); warps rounded to gran 4.
 - blocks/SM = min over limiters {regs: regs_per_sm//regs_per_block, smem: smem_per_sm//ceil(smem,128),
@@ -65,15 +67,25 @@ Fit objective: combined log(speedup) (weight 1.0) + log(absolute time) (0.3), oc
   n_launches_unfused, bytes_fused, bytes_unfused, flops, arith_intensity
 - measured (fit/validate only): t_fused_ms, t_unfused_ms, speedup, beneficial(label)
 - ncu ground truth (concepts): occ_achieved/theoretical, spill(local)_bytes, bank_conf,
-  dram_bytes, tensor_pct, dur_us  → dominant_penalty ∈ {spill, layout, none}
+  dram_bytes, tensor_pct, dur_ns (ncu kernel duration, ns)  → dominant_penalty ∈ {spill, layout, none}
 
 ## 6. Headline Ada results (to reproduce on C500 and compare)
-- RQ1 decision (held-out-shape CV): **P=0.73 R=1.00 F1=0.84 acc=0.88** vs greedy F1=0.00.
-- RQ2a occupancy validation: analytic vs ncu-theoretical **MAE=0.000 (22/22 exact)**.
+- RQ1 decision (72 genuine cases; 16 degenerate no-op rows — NOUT∈{8,16}, unfused==fused — excluded
+  from scoring): **recall=1.00 across every CV** (never keeps a toxic fusion). F1 by fold scheme:
+  shape-CV **0.91** (spills are constant across (R,C) shapes ⇒ ~in-sample), leave-one-NOUT-out
+  **1.00** (spill signal perfectly separates the reduction cases on this clean microbench),
+  leave-one-dtype-out **0.91** (fp16-held 0.96, fp32-held 0.86 — a mild transfer cost). Greedy F1=0.00.
+- RQ2a occupancy: analytic model **reproduces ncu *theoretical* occupancy exactly (MAE=0.000, 22/22)**
+  = the CUDA occupancy calculator by construction; it does **not** predict *achieved* occupancy (off
+  21.7 pts mean / 88 max) — the spill term handles the real degradation.
 - RQ2b attribution: **100%** on cases with a profiled dominant penalty (spill branch);
   layout branch validated by the raw-CUDA bank-conflict study (spills=0, conflicts drive harm).
-- RQ4 utility: recommender **up to 8.6× faster than greedy-always-fuse, within ~1.1× of oracle**,
-  at zero timing cost (compiles only).
+- RQ4 utility: recommender **up to 9.85× faster than greedy-always-fuse**; **matches the timed
+  oracle exactly (1.00×) on the fp16 subgraphs** and is **3.03× off oracle on the fp32 subgraph**
+  (where discounting smooth occupancy under-penalises non-spilling fp32 width tuning — still 2.80×
+  faster than greedy), at zero timing cost (compiles only). See `logs/run_endtoend.log`.
+  *Caveat:* the subgraphs are deliberately built with wide layers greedy over-fuses, so 9.85× is a
+  constructed upper bound on greedy's badness, not a typical-workload speedup.
 - Ada finding: the **only decision-flipping** toxic mechanism is the register-spill cliff (P_occ).
   Layout penalties degrade but do not overturn round-trip savings on Ada.
 

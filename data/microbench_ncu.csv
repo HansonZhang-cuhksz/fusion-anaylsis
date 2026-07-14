@@ -1,4 +1,4 @@
-family,op_pair,dtype,R,C,param_K,f_regs,f_spills,f_occ_analytic,u_regs,u_occ_analytic,f_occ_theoretical,f_occ_achieved,f_regs_ncu,f_spill_bytes,f_bank_conf,f_dram_bytes,f_dur_us,u_spill_bytes,u_bank_conf,u_dram_bytes,occ_analytic_pct,occ_val_abs_err,dominant_penalty,param_NOUT,param_GS
+family,op_pair,dtype,R,C,param_K,f_regs,f_spills,f_occ_analytic,u_regs,u_occ_analytic,f_occ_theoretical,f_occ_achieved,f_regs_ncu,f_spill_bytes,f_bank_conf,f_dram_bytes,f_dur_ns,u_spill_bytes,u_bank_conf,u_dram_bytes,occ_analytic_pct,occ_val_abs_err,dominant_penalty,param_NOUT,param_GS
 pointwise,pointwise_chain_k2,float16,2048,2048,2,19,0,1.0,18,1.0,100.0,91.39,19.0,0.0,0.0,8403840.0,73632.0,0.0,0.0,16788736.0,100.0,0.0,none,,
 pointwise,pointwise_chain_k8,float16,2048,2048,8,19,0,1.0,18,1.0,100.0,94.77,19.0,0.0,0.0,14984832.0,250112.0,0.0,0.0,67995392.0,100.0,0.0,none,,
 pointwise,pointwise_chain_k32,float16,2048,2048,32,19,0,1.0,18,1.0,100.0,93.47,19.0,0.0,0.0,11218304.0,957440.0,0.0,0.0,273902720.0,100.0,0.0,none,,
