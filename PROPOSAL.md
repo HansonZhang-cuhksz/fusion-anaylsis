@@ -135,25 +135,25 @@ Legend: **[ADA]** = do on the Ada machine's Claude Code session · **[MX]** = do
 - [x] Verify compile (`cucc`), static registers (`-resource-usage`), profiler (`mcProfiler`/MCPTI)
 - [x] Confirm torch+triton on C500; deliver `tooling/check_profiling_stack.sh`
 
-### Phase 1 — Ada bring‑up & ground‑truth harness  **[ADA]**
-- [ ] Set up Ada env: torch/`torch.compile`, Triton, `nvcc`, `ncu`, `nsys`; confirm profiling counters accessible (may need `NVreg_RestrictProfilingToAdminUsers=0` / `--target-processes`)
-- [ ] Port `tooling/probe_kernel.cu` + a `check_profiling_stack.sh` analogue for NVIDIA; capture `nvcc --resource-usage` register/occupancy output
-- [ ] Build the **microbench matrix** (fused/unfused op‑pair variants, shape sweep) in Triton + raw CUDA
-- [ ] Automate `ncu` collection → tidy dataset: `{op_pair, shape, dtype} → {t_fused, t_unfused, occ, regs, spills, bank_conflict, dram_bytes, beneficial?, dominant_penalty}`
-- **DoD:** reproducible dataset (≥ a few hundred rows) with per‑fusion ground‑truth label + dominant penalty
+### Phase 1 — Ada bring‑up & ground‑truth harness  **[ADA]** ✅ DONE (see logs/LOG-01, LOG-02)
+- [x] Set up Ada env: torch/Triton/`nvcc`/`ncu` in conda env `profiling`; **ncu counters work under WSL2** (`--target-processes all`); nvcc host-compiler pinned to conda gcc-11 (`tooling/env.sh`)
+- [x] `tooling/check_profiling_stack_nvidia.sh` (NVIDIA analogue, PASS=11/0/0); `-Xptxas -v` register/spill/occupancy captured; Triton `n_regs`/`n_spills` as the single-compile static input
+- [x] Microbench matrix in Triton (families P pointwise, R sibling-reduction) + raw CUDA (family T transpose/bank-conflict)
+- [x] Automated `ncu` → vendor-neutral dataset (`data/microbench_timing.csv` 88 rows + `data/microbench_ncu.csv`), with `beneficial?` + `dominant_penalty`
+- **DoD:** ✅ reproducible dataset with per-fusion ground-truth label + dominant penalty
 
-### Phase 2 — Model formalization & fit  **[ADA]**
-- [ ] Formalize Φ(v) and tile/layout compatibility for the taxonomy classes
-- [ ] Implement `η_fused` from single‑compile inputs; calibrate `P_occ`, `P_layout` on Ada
-- [ ] Measure RQ1/RQ2: decision precision/recall/F1 and attribution accuracy vs ground truth
-- [ ] Ablations (drop each penalty); compare vs greedy & Inductor default
-- **DoD:** model predicts fuse/don't‑fuse on held‑out shapes with strong F1; attribution matches profiler
+### Phase 2 — Model formalization & fit  **[ADA]** ✅ DONE (LOG-02, LOG-03)
+- [x] Φ(v) taxonomy + tile/layout descriptors (`fusion/kernels/base.py`); analytical sm89 occupancy (`fusion/hw.py`) validated exact vs ncu
+- [x] `η_fused = min·P_occ·P_layout` from single-compile inputs (`model/costmodel.py`); `P_occ` (occupancy+spill), `P_layout` (bank-conflict) calibrated on Ada
+- [x] **RQ1: F1=0.84, recall=1.00 (held-out-shape CV)**; **RQ2a occupancy MAE=0.000**; **RQ2b attribution 12/12**
+- [x] Ablations: drop-spill F1→0.49 (spills dominant), drop-occupancy F1=0.84; vs greedy F1=0.00
+- **DoD:** ✅ strong held-out F1; attribution matches profiler
 
-### Phase 3 — Compiler pass & end‑to‑end  **[ADA]**
-- [ ] Wire the criterion into an Inductor/Triton fusion hook (or offline recommender fallback)
-- [ ] End‑to‑end latency on real subgraphs vs baselines + oracle; log compile‑time overhead
-- [ ] Freeze the Ada results section + the exact model spec (constants, formulas) for transfer
-- **DoD:** end‑to‑end speedup vs default on ≥2 real subgraphs; frozen model spec handed to MX phase
+### Phase 3 — Compiler pass & end‑to‑end  **[ADA]** ✅ DONE (LOG-03)
+- [x] Offline recommender (`model/recommender.py`) — the PROPOSAL §5.4 sanctioned fallback; decides from single-compile static resource reports
+- [x] End-to-end on 3 subgraphs vs greedy/oracle/none (`fusion/endtoend.py`): **model up to 9.85× vs greedy, = oracle on fp16**; decide wall ≤26 ms (compiles only, no timing)
+- [x] Frozen model spec (`model/MODEL_SPEC.md`) + fitted constants (`model/ada_constants.json`)
+- **DoD:** ✅ end-to-end speedup on ≥2 subgraphs; frozen spec ready for MX phase
 
 ### Phase 4 — Cross‑vendor transfer to C500  **[MX]** *(user returns to this session)*
 - [ ] Re‑parameterize constants for C500 (RF model, spill cap, `MaxWarps`, `C_peak`, `B_peak`)

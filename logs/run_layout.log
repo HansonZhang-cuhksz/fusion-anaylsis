@@ -1,0 +1,7 @@
+[layout] static: conflict regs=14 occ=0.667 | clean regs=14 occ=0.667  (identical => isolates P_layout)
+  2048x2048: conflict=0.306 clean=0.233 unfused=0.326 slowdown=1.31x bank(conf=4.1e+06 clean=3e+04) spill=0 -> model_dom=none ok=True
+  4096x4096: conflict=1.290 clean=0.815 unfused=1.421 slowdown=1.58x bank(conf=1.6e+07 clean=9.8e+04) spill=0 -> model_dom=none ok=True
+  8192x8192: conflict=4.131 clean=3.252 unfused=6.179 slowdown=1.27x bank(conf=6.5e+07 clean=3.4e+05) spill=0 -> model_dom=none ok=True
+  4096x8192: conflict=2.382 clean=1.608 unfused=2.979 slowdown=1.48x bank(conf=3.3e+07 clean=1.7e+05) spill=0 -> model_dom=none ok=True
+[layout] calibrated beta_layout = 0.4056 (from median conflict slowdown 1.40x, bank_conf/elem~0.98)
+[layout] wrote 4 rows; model attributed 4/4 to LAYOUT (spills=0, bank conflicts drive the degradation) -> beta_layout saved to constants

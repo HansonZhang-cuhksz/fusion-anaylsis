@@ -1,0 +1,5 @@
+family,op_pair,R,C,dtype,correct,f_regs,f_spills,f_occ_analytic,t_conflict_ms,t_clean_ms,t_unfused_ms,conflict_slowdown,fused_beats_unfused,bank_conf_conflict,bank_conf_clean,spill_bytes_conflict,model_dominant_penalty,model_P_occ,model_P_layout
+transpose_cuda,txpose_relu_2048x2048,2048,2048,float32,1,14,0,0.6667,0.30618,0.23347,0.32563,1.311,1,4097162.0,30340.0,0.0,layout,1.0,0.7162
+transpose_cuda,txpose_relu_4096x4096,4096,4096,float32,1,14,0,0.6667,1.28973,0.81459,1.4208,1.583,1,16375598.0,97975.0,0.0,layout,1.0,0.7164
+transpose_cuda,txpose_relu_8192x8192,8192,8192,float32,1,14,0,0.6667,4.13133,3.25171,6.17882,1.271,1,65487688.0,344627.0,0.0,layout,1.0,0.7164
+transpose_cuda,txpose_relu_4096x8192,4096,8192,float32,1,14,0,0.6667,2.38234,1.60819,2.97882,1.481,1,32747850.0,170249.0,0.0,layout,1.0,0.7164
