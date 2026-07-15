@@ -155,12 +155,19 @@ Legend: **[ADA]** = do on the Ada machine's Claude Code session · **[MX]** = do
 - [x] Frozen model spec (`model/MODEL_SPEC.md`) + fitted constants (`model/ada_constants.json`)
 - **DoD:** ✅ end-to-end speedup on ≥2 subgraphs; frozen spec ready for MX phase
 
-### Phase 4 — Cross‑vendor transfer to C500  **[MX]** *(user returns to this session)*
-- [ ] Re‑parameterize constants for C500 (RF model, spill cap, `MaxWarps`, `C_peak`, `B_peak`)
-- [ ] Re‑run microbench matrix on C500 (Triton + `cucc`); collect ground truth via **MCPTI**
-- [ ] Validate transfer (RQ3); find & analyze ≥1 **decision‑flip** case (safe on Ada, toxic on C500 or vice‑versa) — likely driven by the 4 KB spill cliff or the MT/ST split
-- [ ] Cross‑vendor generalization table
-- **DoD:** transfer accuracy reported; ≥1 documented, explained decision‑flip
+### Phase 4 — Cross‑vendor transfer to C500  **[MX]** ✅ DONE (see `logs/LOG-04`, `model/transfer_c500.py`)
+- [x] Re‑parameterized constants for C500 (`METAX_C500` in `fusion/hw.py`, env `FUSION_HW=c500`;
+      **64‑wide waves**, 128K RF, 4 KB spill cap); re‑fit `model/c500_constants.json` (B_peak ~1.05 TB/s)
+- [x] Re‑ran the microbench matrix on C500 (Triton) → `data/microbench_timing_c500.csv`; ground truth
+      via **MCPTI‑direct** (`fusion/mcpti_profile.py` — the `mcProfiler` CLI value‑dump is unimplemented)
+- [x] **RQ3 transfer: C500 decision F1=0.909, recall=1.00**; **RQ2‑on‑C500 attribution 12/12** (spill,
+      local traffic ≫ DRAM ~307×, matches model 12/12)
+- [x] **≥1 decision‑flip:** `sibling_redux NOUT=32 fp32` = beneficial on Ada (0 spills) → **toxic on
+      C500** (100 spills, 0.67×), all 4 shapes; the model flips via re‑read static spill count
+- [x] Cross‑vendor generalization table (MODEL_SPEC §7)
+- **DoD:** ✅ transfer accuracy + hardware‑validated attribution + documented, explained decision‑flip.
+  *Honest caveat:* the flip is carried by re‑read static inputs, not re‑fit constants (Ada constants
+  give the same C500 F1) — spill‑dominated; NOUT=128 spills‑but‑runs (no 4 KB launch failure). → G2/G3.
 
 ### Phase 5 — Write‑up & artifact  **[EITHER]**
 - [ ] Draft paper (intro/related/method/eval); build all figures/tables

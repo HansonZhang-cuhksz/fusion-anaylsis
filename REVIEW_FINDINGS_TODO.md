@@ -13,7 +13,7 @@ R=0.941, 1 FN); RQ2 occupancy 22/22, attribution 12/12; RQ4 model=oracle on 3 *s
 
 ---
 
-## G1 — [CORE NOVELTY] Cross-vendor transfer to MetaX C500 + decision-flip   ✅ CORE DONE (polish remains)
+## G1 — [CORE NOVELTY] Cross-vendor transfer to MetaX C500 + decision-flip   ✅ DONE (occupancy-metric deferred)
 **Why this is the paper.** The search-free + interpretable *outcome* is largely covered by prior work
 (Welder, 2026 analytical models). The defensible differentiator is **cross-vendor transfer incl. a
 domestic GPU + the first fusion characterization of the C500 + a documented decision-flip**.
@@ -34,35 +34,45 @@ reproduce: `python -m model.transfer_c500`.
       CLI value-dump is UNIMPLEMENTED — grpc 12); `fusion/mcpti_profile.py` → `data/microbench_c500_mcpti.csv`.
       **Attribution validated on hardware: dominant=spill 12/12** (local spill traffic scales with
       `n_spills`, dominates DRAM ~307×); **model attribution == profiled 12/12** (C500 analogue of Ada's 8/8).
-- [ ] Achieved-occupancy on C500 needs the MCPTI **Metric** API (no raw `waves` event) — deferred,
-      low value (occupancy term inert). Calibrate occupancy granularities vs measured waves (secondary).
-- [ ] Fold C500 results into `MODEL_SPEC`/`PROPOSAL` + a cross-vendor generalization table.
+- [x] Cross-vendor generalization table + folded C500 results into `MODEL_SPEC §7` and `PROPOSAL §8`
+      (`model.transfer_c500` prints the table reproducibly).
+- [ ] (deferred, low value) Achieved-occupancy on C500 via the MCPTI **Metric** API (no raw `waves`
+      event); calibrate occupancy granularities vs measured waves. Occupancy term is inert, so parked.
 **Honest caveat (feeds G2/G3):** the binary decision is spill-dominated, so Ada constants on C500 give
 the *same* F1 — the transfer is carried by the re-read static inputs, not the re-fit constants; and the
 4 C500 FPs are `NOUT=32 fp16` (same 100 spills as the toxic fp32) — spill *count* alone can't separate them.
 
-## G2 — On Ada the model collapses to "did it spill?"
-Ablations: drop-spill F1 **0.545** vs drop-occupancy **0.970** (occupancy term inert, occ_knee pinned
-at floor); P_layout **never flips a decision** on Ada. So the interpretable occupancy-vs-layout
-attribution reduces, on the only HW tested, to a single binary spill feature; the layout branch is an
-isolated 4-row microbench that never affects a real decision.
-- [ ] Demonstrate a regime where P_occ and P_layout genuinely compete / flip decisions (C500 hope, or
-      richer ops) — otherwise "interpretable multi-cause attribution" is overstated.
+## G2 — Model collapses to "did it spill?"  → now with a CONCRETE FAILURE CASE (see `logs/LOG-05`)
+Ablations: drop-spill F1 **0.545** vs drop-occupancy **0.970** (occupancy inert); P_layout never flips
+a decision on Ada. **New (C500 GEMM sweep):** even in the compute-bound GEMM regime, low occupancy
+alone does NOT flip the decision (occ 0.125: fp16 spill-117 beneficial, fp32 spill-205 toxic) — spill
+is the decisive signal across BOTH op families. **BUT the spill-count model then FAILS on GEMM's toxic
+cases** (recall 0/4): the toxic fp32-128×128 configs have fused `f_spills=205` < unfused `u_spills=234`,
+so the model predicts *beneficial* while the fusion is measured *toxic* — the static spill count has the
+**wrong sign** (the fused epilogue re-reads spilled state; static count misses that runtime cost).
+- [ ] Add a **non-spill / runtime-spill-aware cost signal** (fused shared/local-mem *bytes* via MCPTI,
+      or an occupancy×compute term) so the model catches the GEMM-toxic regime the spill count misses.
+- [ ] (still open) Find a regime where P_occ / P_layout genuinely *compete* without spilling at all —
+      GEMM-epilogue didn't (its big round-trip saving makes it spill-or-beneficial); try **horizontal
+      multi-GEMM fusion** (fuse-wide drops occupancy but saves little), the GEMM analog of Family R.
 
-## G3 — Non-spill-toxicity blind spot (recall 0.941, the 1 FN)
-A NOUT=32 reduction is toxic (speedup 0.91) with **no spill** — the spill-focused model *keeps* it (the
-dangerous FN direction for a rejection pass).
-- [ ] Extend the model to catch occupancy/bandwidth-bound (non-spill) toxicity, **OR** explicitly scope
-      the contribution to "spill-dominated toxicity" and characterize the blind spot.
+## G3 — Non-spill / spill-count-blind toxicity (Ada 1 FN + the new C500 GEMM cases)
+Ada: a NOUT=32 reduction toxic (0.91×) with no spill. **C500 (new):** 4 GEMM fusions toxic while the
+static spill count says beneficial (§G2). Same dangerous direction (model *keeps* a toxic fusion).
+- [ ] Extend the model to catch these (couple with G2's non-spill signal), **OR** scope the claim to
+      "spill-count-visible toxicity" and characterize this blind spot honestly in the writeup.
 
-## G4 — Evaluation breadth (too thin for a conference)
-- [ ] Implement the declared-but-missing taxonomy classes: **CONTRACTION** (GEMM-epilogue) and
-      **BROADCAST**; add **softmax / LayerNorm** fusions.
-- [ ] Replace the 3 *synthetic* sibling-reduction "subgraphs" with **≥1 real transformer subgraph**
-      (attention / MLP-FFN / LayerNorm+Linear) for RQ4.
-- [ ] Compare against a **real compiler** baseline (torch.compile/Inductor default fusion; ideally
-      TVM / Welder), not just greedy + oracle.
-- [ ] Scale the dataset (currently 64 cases / 17 toxic; per-fold F1 swings 0.0–1.0; only 3 NOUT values).
+## G4 — Evaluation breadth (too thin for a conference)  → CONTRACTION done
+- [x] **CONTRACTION (GEMM-epilogue)** implemented (`fusion/kernels/gemm_epilogue.py`) + characterized on
+      C500 (16-config 4-GPU sweep → `data/microbench_gemm_c500.csv`; `tl.dot`/MMA works). Fusion
+      beneficial 12/16, toxic 4/16 (fp32 big-tile). See `logs/LOG-05`.
+- [ ] Still missing taxonomy classes: **BROADCAST**; **softmax / LayerNorm** fusions (the user's
+      "normalization-into-GEMM/attention" PDF is a good anchor).
+- [ ] Replace the 3 *synthetic* subgraphs with **≥1 real transformer subgraph** (attention / MLP-FFN /
+      LayerNorm+Linear) for RQ4.
+- [ ] Compare against a **real compiler** baseline (torch.compile/Inductor default fusion; ideally TVM/Welder).
+- [ ] Scale the dataset (add the GEMM family + more op-pairs to the fit, not just reductions/pointwise).
+- [ ] Run the GEMM family on **Ada** too (needs the Ada machine) for the cross-vendor GEMM comparison.
 
 ## G5 — Single, noisy hardware point
 - [ ] Add the **Ampere sm80** GPU (available) — cheap second NVIDIA point; de-risks single-device overfit

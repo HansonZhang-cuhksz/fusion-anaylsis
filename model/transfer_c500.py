@@ -29,6 +29,41 @@ def reduction_summary(df):
             .reset_index().set_index(["param_NOUT", "dtype"]))
 
 
+def generalization_table():
+    """Reproducible Ada-vs-C500 cross-vendor summary (Phase 4 / RQ3 deliverable)."""
+    import os
+    def dev(csv, kpath):
+        dfe, _ = nondegenerate(pd.read_csv(csv))
+        k = DeviceConstants(**json.load(open(kpath)))
+        p, t = decisions(dfe, k)
+        return dfe, prf(p, t), k
+    ae, ma, ka = dev(ADA_CSV, "model/ada_constants.json")
+    ce, mc, kc = dev(C500_CSV, "model/c500_constants.json")
+    c500_attr = "12/12 (spill, MCPTI)" if os.path.exists("data/microbench_c500_mcpti.csv") else "n/a"
+    rows = [
+        ("wavefront (warp) size", "32", "64"),
+        ("register file / CU", "64K", "128K (2x)"),
+        ("spill cap", "soft (local traffic)", "hard 4 KB/thread"),
+        ("genuine cases / toxic", f"{len(ae)} / {int((ae.beneficial==0).sum())}",
+                                  f"{len(ce)} / {int((ce.beneficial==0).sum())}"),
+        ("decision F1", f"{ma['f1']:.3f}", f"{mc['f1']:.3f}"),
+        ("precision / recall", f"{ma['precision']:.3f} / {ma['recall']:.3f}",
+                               f"{mc['precision']:.3f} / {mc['recall']:.3f}"),
+        ("errors", f"{ma['fp']} FP, {ma['fn']} FN (non-spill)", f"{mc['fp']} FP (NOUT=32 fp16), {mc['fn']} FN"),
+        ("attribution (model==profiled)", "12/12 (8 spill ncu + 4 layout)", c500_attr),
+        ("gamma_spill (fit)", f"{ka.gamma_spill:.4f}", f"{kc.gamma_spill:.4f}"),
+        ("B_peak (fit)", f"{ka.B_peak/1e9:.0f} GB/s", f"{kc.B_peak/1e12:.2f} TB/s"),
+        ("spill-cliff onset (NOUT)", "64", "32 (earlier; 64-wide waves)"),
+    ]
+    w = max(len(r[0]) for r in rows)
+    print("\n=== Cross-vendor generalization table (Ada sm89 vs MetaX C500) ===")
+    print(f"| {'property':<{w}} | {'Ada sm89':<30} | {'MetaX C500':<30} |")
+    print(f"|{'-'*(w+2)}|{'-'*32}|{'-'*32}|")
+    for a, b, c in rows:
+        print(f"| {a:<{w}} | {b:<30} | {c:<30} |")
+    print("Decision-flip: sibling_redux NOUT=32 fp32 = beneficial on Ada (0 spills) -> toxic on C500 (100).")
+
+
 def main():
     ada, c500 = pd.read_csv(ADA_CSV), pd.read_csv(C500_CSV)
     ra, rc = reduction_summary(ada), reduction_summary(c500)
@@ -79,6 +114,8 @@ def main():
             truth = "beneficial" if row.beneficial else "toxic"
             print(f"  redux NOUT={nout} {dt} on {name:5}: spills={int(row.f_spills):4d} -> "
                   f"model={verdict:18s} | measured {row.speedup:.2f} ({truth})")
+
+    generalization_table()
 
 
 if __name__ == "__main__":

@@ -91,13 +91,31 @@ Fit objective: combined log(speedup) (weight 1.0) + log(absolute time) (0.3), oc
 - Ada finding: the **only decision-flipping** toxic mechanism is the register-spill cliff (P_occ).
   Layout penalties degrade but do not overturn round-trip savings on Ada.
 
-## 7. C500 transfer checklist (Phase 4)
-1. Build `HardwareModel("metax_c500", ...)`: SMs, warps/SM, regs/SM, `split_regfile=True`,
-   `spill_cap_bytes=4096`. Occupancy formula unchanged.
-2. Re-fit `DeviceConstants` on C500 (B_peak, C_peak, T_launch, gamma_spill, beta_layout) from the
-   C500 microbench timing (same `runner.py`, Triton ports).
-3. Ground truth via MCPTI (WAVES, conflict cycles, MMA duty, Dnoc/L2C). Map to the SAME concept
-   columns (§5).
-4. **Decision-flip hunt:** the 4 KB/thread private cap turns the soft spill cost into a HARD launch
-   failure — a fusion safe on Ada (spills but runs) can be *illegal* on C500. Expect ≥1 flip in the
-   sibling-reduction family around the NOUT where spill bytes/thread cross 4 KB.
+## 7. C500 cross-vendor transfer — DONE (Phase 4)
+Full log: `logs/LOG-04-c500-transfer.md`; reproduce: `python -m model.transfer_c500`. The model
+transferred by **swapping `DeviceConstants` + `HardwareModel` only — formulas unchanged.**
+`METAX_C500` in `fusion/hw.py` (env `FUSION_HW=c500`); constants `model/c500_constants.json`; ground
+truth via `fusion/mcpti_profile.py` (MCPTI-direct — the `mcProfiler` CLI value-dump is unimplemented).
+
+**Cross-vendor generalization table (reproducible):**
+| property | Ada sm89 | MetaX C500 |
+|---|---|---|
+| wavefront (warp) size | 32 | **64** |
+| register file / CU · spill cap | 64K · soft | 128K · **hard 4 KB/thread** |
+| genuine cases / toxic | 64 / 17 | 64 / 20 |
+| decision F1 | 0.970 | 0.909 |
+| precision / recall | 1.000 / 0.941 | 0.833 / 1.000 |
+| errors | 1 FN (non-spill NOUT=32) | 4 FP (NOUT=32 fp16) |
+| attribution (model==profiled) | 12/12 (8 spill ncu + 4 layout) | **12/12 (spill, MCPTI)** |
+| gamma_spill · B_peak (fit) | 0.0807 · 151 GB/s | 0.0068 · **1.05 TB/s** |
+| spill-cliff onset (NOUT) | 64 | **32 (earlier; 64-wide waves)** |
+
+- **Decision-flip:** `sibling_redux NOUT=32 fp32` = beneficial on Ada (0 spills, 1.04×) → **toxic on
+  C500** (100 spills, 0.67×), all 4 shapes. The model flips its verdict via the re-read static spill
+  count. Mechanism: 64-wide wavefronts double register pressure → spill at a smaller NOUT.
+- **Honest caveats** (feed TODO G2/G3): the binary decision is spill-dominated, so Ada constants on
+  C500 give the same F1 — the flip is carried by re-read static inputs, not re-fit constants; and the
+  4 C500 FPs (`NOUT=32 fp16`, same 100 spills as the toxic fp32) show spill *count* alone can't
+  separate them. NOUT=128 does **not** cross the 4 KB cap into a launch failure (spills-but-runs).
+- Deferred: achieved-occupancy on C500 needs the MCPTI Metric API (no raw `waves` event); low value
+  (occupancy term inert).
