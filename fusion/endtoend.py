@@ -25,6 +25,12 @@ SPLIT = 8  # the conservative "no horizontal fusion" group width
 
 def time_layer_width(R, C, NOUT, width, dtype) -> float:
     """Measured latency of executing NOUT sibling reductions in groups of `width`."""
+    # Prophylactic hygiene only (LOG-10 s1): keep torch's RESERVED footprint from oversubscribing
+    # physical VRAM, which can leave a SPILLING kernel's local-memory store host-resident.
+    # NOTE: this harness was verified NOT to have been affected -- the pre-fix RQ4 numbers were not
+    # contaminated (pre-fix greedy(w128)=151.4ms is consistent with unstarved timing); the 9.72 -> 8.65x
+    # shift is ordinary run-to-run variation, not a correction.
+    torch.cuda.empty_cache()
     dt = getattr(torch, dtype)
     if width >= NOUT:
         case = reduction.make_case(R=R, C=C, NOUT=NOUT, dtype=dt, GS=min(SPLIT, NOUT),

@@ -1,74 +1,74 @@
 [runner] 72 cases -> data/microbench_timing.csv
-[  1/72] pointwise_chain_k1     float16 R2048xC2048 regs= 18 spill=   0 occ=1.000 sp= 1.08x ben=1
-[  2/72] pointwise_chain_k1     float32 R2048xC2048 regs= 21 spill=   0 occ=1.000 sp= 1.01x ben=1
-[  3/72] pointwise_chain_k2     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.35x ben=1
-[  4/72] pointwise_chain_k2     float32 R2048xC2048 regs= 25 spill=   0 occ=1.000 sp= 1.39x ben=1
-[  5/72] pointwise_chain_k4     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.69x ben=1
-[  6/72] pointwise_chain_k4     float32 R2048xC2048 regs= 24 spill=   0 occ=1.000 sp= 2.23x ben=1
-[  7/72] pointwise_chain_k8     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.48x ben=1
-[  8/72] pointwise_chain_k8     float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 3.25x ben=1
-[  9/72] pointwise_chain_k16    float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.29x ben=1
-[ 10/72] pointwise_chain_k16    float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 3.22x ben=1
-[ 11/72] pointwise_chain_k32    float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 2.07x ben=1
-[ 12/72] pointwise_chain_k32    float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 4.45x ben=1
+[  1/72] pointwise_chain_k1     float16 R2048xC2048 regs= 18 spill=   0 occ=1.000 sp= 0.97x ben=0
+[  2/72] pointwise_chain_k1     float32 R2048xC2048 regs= 21 spill=   0 occ=1.000 sp= 1.00x ben=0
+[  3/72] pointwise_chain_k2     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.30x ben=1
+[  4/72] pointwise_chain_k2     float32 R2048xC2048 regs= 25 spill=   0 occ=1.000 sp= 1.43x ben=1
+[  5/72] pointwise_chain_k4     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.71x ben=1
+[  6/72] pointwise_chain_k4     float32 R2048xC2048 regs= 24 spill=   0 occ=1.000 sp= 2.40x ben=1
+[  7/72] pointwise_chain_k8     float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.74x ben=1
+[  8/72] pointwise_chain_k8     float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 3.58x ben=1
+[  9/72] pointwise_chain_k16    float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.86x ben=1
+[ 10/72] pointwise_chain_k16    float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 3.92x ben=1
+[ 11/72] pointwise_chain_k32    float16 R2048xC2048 regs= 19 spill=   0 occ=1.000 sp= 2.42x ben=1
+[ 12/72] pointwise_chain_k32    float32 R2048xC2048 regs= 23 spill=   0 occ=1.000 sp= 4.92x ben=1
 [ 13/72] pointwise_chain_k1     float16 R4096xC4096 regs= 18 spill=   0 occ=1.000 sp= 1.00x ben=0
-[ 14/72] pointwise_chain_k1     float32 R4096xC4096 regs= 21 spill=   0 occ=1.000 sp= 1.02x ben=1
-[ 15/72] pointwise_chain_k2     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 2.00x ben=1
-[ 16/72] pointwise_chain_k2     float32 R4096xC4096 regs= 25 spill=   0 occ=1.000 sp= 1.68x ben=1
-[ 17/72] pointwise_chain_k4     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 3.18x ben=1
-[ 18/72] pointwise_chain_k4     float32 R4096xC4096 regs= 24 spill=   0 occ=1.000 sp= 4.05x ben=1
-[ 19/72] pointwise_chain_k8     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 3.18x ben=1
-[ 20/72] pointwise_chain_k8     float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp= 7.88x ben=1
-[ 21/72] pointwise_chain_k16    float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 3.86x ben=1
-[ 22/72] pointwise_chain_k16    float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp= 6.82x ben=1
-[ 23/72] pointwise_chain_k32    float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 5.14x ben=1
-[ 24/72] pointwise_chain_k32    float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp=10.66x ben=1
-[ 25/72] pointwise_chain_k1     float16 R8192xC2048 regs= 18 spill=   0 occ=1.000 sp= 0.99x ben=0
-[ 26/72] pointwise_chain_k1     float32 R8192xC2048 regs= 21 spill=   0 occ=1.000 sp= 1.00x ben=0
-[ 27/72] pointwise_chain_k2     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.96x ben=1
+[ 14/72] pointwise_chain_k1     float32 R4096xC4096 regs= 21 spill=   0 occ=1.000 sp= 1.00x ben=1
+[ 15/72] pointwise_chain_k2     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 1.99x ben=1
+[ 16/72] pointwise_chain_k2     float32 R4096xC4096 regs= 25 spill=   0 occ=1.000 sp= 1.97x ben=1
+[ 17/72] pointwise_chain_k4     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 1.94x ben=1
+[ 18/72] pointwise_chain_k4     float32 R4096xC4096 regs= 24 spill=   0 occ=1.000 sp= 3.42x ben=1
+[ 19/72] pointwise_chain_k8     float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 3.27x ben=1
+[ 20/72] pointwise_chain_k8     float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp= 4.22x ben=1
+[ 21/72] pointwise_chain_k16    float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 4.39x ben=1
+[ 22/72] pointwise_chain_k16    float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp= 7.69x ben=1
+[ 23/72] pointwise_chain_k32    float16 R4096xC4096 regs= 19 spill=   0 occ=1.000 sp= 4.98x ben=1
+[ 24/72] pointwise_chain_k32    float32 R4096xC4096 regs= 23 spill=   0 occ=1.000 sp= 8.83x ben=1
+[ 25/72] pointwise_chain_k1     float16 R8192xC2048 regs= 18 spill=   0 occ=1.000 sp= 1.00x ben=0
+[ 26/72] pointwise_chain_k1     float32 R8192xC2048 regs= 21 spill=   0 occ=1.000 sp= 0.99x ben=0
+[ 27/72] pointwise_chain_k2     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 1.97x ben=1
 [ 28/72] pointwise_chain_k2     float32 R8192xC2048 regs= 25 spill=   0 occ=1.000 sp= 1.98x ben=1
-[ 29/72] pointwise_chain_k4     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 3.27x ben=1
-[ 30/72] pointwise_chain_k4     float32 R8192xC2048 regs= 24 spill=   0 occ=1.000 sp= 4.00x ben=1
-[ 31/72] pointwise_chain_k8     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 3.24x ben=1
-[ 32/72] pointwise_chain_k8     float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 6.15x ben=1
-[ 33/72] pointwise_chain_k16    float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 3.93x ben=1
-[ 34/72] pointwise_chain_k16    float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 6.77x ben=1
-[ 35/72] pointwise_chain_k32    float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 5.13x ben=1
-[ 36/72] pointwise_chain_k32    float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 8.41x ben=1
-[ 37/72] pointwise_chain_k1     float16 R4096xC8192 regs= 18 spill=   0 occ=1.000 sp= 0.99x ben=0
-[ 38/72] pointwise_chain_k1     float32 R4096xC8192 regs= 21 spill=   0 occ=1.000 sp= 1.01x ben=1
-[ 39/72] pointwise_chain_k2     float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 2.00x ben=1
-[ 40/72] pointwise_chain_k2     float32 R4096xC8192 regs= 25 spill=   0 occ=1.000 sp= 2.04x ben=1
+[ 29/72] pointwise_chain_k4     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 2.30x ben=1
+[ 30/72] pointwise_chain_k4     float32 R8192xC2048 regs= 24 spill=   0 occ=1.000 sp= 2.86x ben=1
+[ 31/72] pointwise_chain_k8     float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 3.11x ben=1
+[ 32/72] pointwise_chain_k8     float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 5.28x ben=1
+[ 33/72] pointwise_chain_k16    float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 4.02x ben=1
+[ 34/72] pointwise_chain_k16    float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 7.44x ben=1
+[ 35/72] pointwise_chain_k32    float16 R8192xC2048 regs= 19 spill=   0 occ=1.000 sp= 3.78x ben=1
+[ 36/72] pointwise_chain_k32    float32 R8192xC2048 regs= 23 spill=   0 occ=1.000 sp= 7.47x ben=1
+[ 37/72] pointwise_chain_k1     float16 R4096xC8192 regs= 18 spill=   0 occ=1.000 sp= 1.00x ben=0
+[ 38/72] pointwise_chain_k1     float32 R4096xC8192 regs= 21 spill=   0 occ=1.000 sp= 0.91x ben=0
+[ 39/72] pointwise_chain_k2     float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 1.82x ben=1
+[ 40/72] pointwise_chain_k2     float32 R4096xC8192 regs= 25 spill=   0 occ=1.000 sp= 2.27x ben=1
 [ 41/72] pointwise_chain_k4     float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 2.25x ben=1
-[ 42/72] pointwise_chain_k4     float32 R4096xC8192 regs= 24 spill=   0 occ=1.000 sp= 4.08x ben=1
-[ 43/72] pointwise_chain_k8     float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 3.27x ben=1
-[ 44/72] pointwise_chain_k8     float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 4.89x ben=1
-[ 45/72] pointwise_chain_k16    float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 3.70x ben=1
-[ 46/72] pointwise_chain_k16    float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 7.40x ben=1
-[ 47/72] pointwise_chain_k32    float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 5.08x ben=1
-[ 48/72] pointwise_chain_k32    float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 8.07x ben=1
-[ 49/72] sibling_redux_n32      float16 R1024xC1024 regs=255 spill=   0 occ=0.167 sp= 0.91x ben=0
+[ 42/72] pointwise_chain_k4     float32 R4096xC8192 regs= 24 spill=   0 occ=1.000 sp= 3.73x ben=1
+[ 43/72] pointwise_chain_k8     float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 3.80x ben=1
+[ 44/72] pointwise_chain_k8     float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 4.62x ben=1
+[ 45/72] pointwise_chain_k16    float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 3.96x ben=1
+[ 46/72] pointwise_chain_k16    float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 5.92x ben=1
+[ 47/72] pointwise_chain_k32    float16 R4096xC8192 regs= 19 spill=   0 occ=1.000 sp= 3.03x ben=1
+[ 48/72] pointwise_chain_k32    float32 R4096xC8192 regs= 23 spill=   0 occ=1.000 sp= 8.02x ben=1
+[ 49/72] sibling_redux_n32      float16 R1024xC1024 regs=255 spill=   0 occ=0.167 sp= 1.08x ben=1
 [ 50/72] sibling_redux_n32      float32 R1024xC1024 regs=255 spill=   0 occ=0.167 sp= 1.06x ben=1
-[ 51/72] sibling_redux_n64      float16 R1024xC1024 regs=255 spill= 300 occ=0.167 sp= 0.08x ben=0
-[ 52/72] sibling_redux_n64      float32 R1024xC1024 regs=255 spill= 310 occ=0.167 sp= 0.07x ben=0
-[ 53/72] sibling_redux_n128     float16 R1024xC1024 regs= 40 spill=1986 occ=1.000 sp= 0.01x ben=0
-[ 54/72] sibling_redux_n128     float32 R1024xC1024 regs= 40 spill=1868 occ=1.000 sp= 0.01x ben=0
-[ 55/72] sibling_redux_n32      float16 R2048xC2048 regs=255 spill=   0 occ=0.167 sp= 1.29x ben=1
+[ 51/72] sibling_redux_n64      float16 R1024xC1024 regs=255 spill= 300 occ=0.167 sp= 0.98x ben=0
+[ 52/72] sibling_redux_n64      float32 R1024xC1024 regs=255 spill= 310 occ=0.167 sp= 0.92x ben=0
+[ 53/72] sibling_redux_n128     float16 R1024xC1024 regs= 40 spill=1986 occ=1.000 sp= 0.29x ben=0
+[ 54/72] sibling_redux_n128     float32 R1024xC1024 regs= 40 spill=1868 occ=1.000 sp= 0.26x ben=0
+[ 55/72] sibling_redux_n32      float16 R2048xC2048 regs=255 spill=   0 occ=0.167 sp= 1.01x ben=1
 [ 56/72] sibling_redux_n32      float32 R2048xC2048 regs=255 spill=   0 occ=0.167 sp= 1.04x ben=1
-[ 57/72] sibling_redux_n64      float16 R2048xC2048 regs=255 spill= 300 occ=0.167 sp= 0.06x ben=0
-[ 58/72] sibling_redux_n64      float32 R2048xC2048 regs=255 spill= 310 occ=0.167 sp= 0.06x ben=0
-[ 59/72] sibling_redux_n128     float16 R2048xC2048 regs= 40 spill=1986 occ=1.000 sp= 0.01x ben=0
-[ 60/72] sibling_redux_n128     float32 R2048xC2048 regs= 40 spill=1868 occ=1.000 sp= 0.01x ben=0
+[ 57/72] sibling_redux_n64      float16 R2048xC2048 regs=255 spill= 300 occ=0.167 sp= 0.94x ben=0
+[ 58/72] sibling_redux_n64      float32 R2048xC2048 regs=255 spill= 310 occ=0.167 sp= 0.89x ben=0
+[ 59/72] sibling_redux_n128     float16 R2048xC2048 regs= 40 spill=1986 occ=1.000 sp= 0.13x ben=0
+[ 60/72] sibling_redux_n128     float32 R2048xC2048 regs= 40 spill=1868 occ=1.000 sp= 0.12x ben=0
 [ 61/72] sibling_redux_n32      float16 R4096xC1024 regs=255 spill=   0 occ=0.167 sp= 1.00x ben=1
-[ 62/72] sibling_redux_n32      float32 R4096xC1024 regs=255 spill=   0 occ=0.167 sp= 1.04x ben=1
-[ 63/72] sibling_redux_n64      float16 R4096xC1024 regs=255 spill= 300 occ=0.167 sp= 0.09x ben=0
-[ 64/72] sibling_redux_n64      float32 R4096xC1024 regs=255 spill= 310 occ=0.167 sp= 0.08x ben=0
-[ 65/72] sibling_redux_n128     float16 R4096xC1024 regs= 40 spill=1986 occ=1.000 sp= 0.01x ben=0
-[ 66/72] sibling_redux_n128     float32 R4096xC1024 regs= 40 spill=1868 occ=1.000 sp= 0.01x ben=0
+[ 62/72] sibling_redux_n32      float32 R4096xC1024 regs=255 spill=   0 occ=0.167 sp= 1.03x ben=1
+[ 63/72] sibling_redux_n64      float16 R4096xC1024 regs=255 spill= 300 occ=0.167 sp= 0.91x ben=0
+[ 64/72] sibling_redux_n64      float32 R4096xC1024 regs=255 spill= 310 occ=0.167 sp= 0.88x ben=0
+[ 65/72] sibling_redux_n128     float16 R4096xC1024 regs= 40 spill=1986 occ=1.000 sp= 0.10x ben=0
+[ 66/72] sibling_redux_n128     float32 R4096xC1024 regs= 40 spill=1868 occ=1.000 sp= 0.09x ben=0
 [ 67/72] sibling_redux_n32      float16 R2048xC4096 regs=255 spill=   0 occ=0.167 sp= 1.01x ben=1
 [ 68/72] sibling_redux_n32      float32 R2048xC4096 regs=255 spill=   0 occ=0.167 sp= 1.04x ben=1
-[ 69/72] sibling_redux_n64      float16 R2048xC4096 regs=255 spill= 300 occ=0.167 sp= 0.10x ben=0
-[ 70/72] sibling_redux_n64      float32 R2048xC4096 regs=255 spill= 310 occ=0.167 sp= 0.09x ben=0
-[ 71/72] sibling_redux_n128     float16 R2048xC4096 regs= 40 spill=1986 occ=1.000 sp= 0.01x ben=0
-[ 72/72] sibling_redux_n128     float32 R2048xC4096 regs= 40 spill=1868 occ=1.000 sp= 0.01x ben=0
-[runner] wrote 72 rows in 253.7s
+[ 69/72] sibling_redux_n64      float16 R2048xC4096 regs=255 spill= 300 occ=0.167 sp= 0.94x ben=0
+[ 70/72] sibling_redux_n64      float32 R2048xC4096 regs=255 spill= 310 occ=0.167 sp= 0.90x ben=0
+[ 71/72] sibling_redux_n128     float16 R2048xC4096 regs= 40 spill=1986 occ=1.000 sp= 0.12x ben=0
+[ 72/72] sibling_redux_n128     float32 R2048xC4096 regs= 40 spill=1868 occ=1.000 sp= 0.11x ben=0
+[runner] wrote 72 rows in 52.1s

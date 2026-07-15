@@ -1,0 +1,7 @@
+[timing_ci] expectations for device=ada
+redux_N32_fp16   exp=beneficial  : median=1.011 95%CI=[1.010,1.013] -> beneficial (sig)
+redux_N32_fp32   exp=beneficial(flip): median=1.040 95%CI=[1.040,1.041] -> beneficial (sig)
+redux_N64_fp32   exp=TOXIC       : median=0.893 95%CI=[0.893,0.898] -> TOXIC (sig)
+gemm_128_fp16    exp=beneficial  : median=1.164 95%CI=[1.124,1.190] -> beneficial (sig)
+gemm_128_fp32    exp=beneficial(flip): median=1.083 95%CI=[1.072,1.104] -> beneficial (sig)
+wrote 5 rows -> data/timing_ci_ada.csv

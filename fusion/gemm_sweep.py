@@ -25,6 +25,10 @@ CONFIGS = [(M, N, K, BM, BN, dt) for (M, N, K) in _SHAPES for (BM, BN) in _TILES
 
 def run_one(cfg):
     M, N, K, BM, BN, dtn = cfg
+    # Release torch's cached blocks first: if free VRAM hits ~0, a SPILLING kernel's local-memory
+    # backing store falls back to host memory and the fused time inflates ~10x (LOG-10). Ada's GEMM
+    # tiles do not spill, but the C500's 128x128 tiles do (f_spills=205) -- keep every device honest.
+    torch.cuda.empty_cache()
     case = G.make_case(M=M, N=N, K=K, dtype=getattr(torch, dtn), BM=BM, BN=BN, BK=32)
     diff = case.check()
     sf = from_triton(case.fused_kernels[0])

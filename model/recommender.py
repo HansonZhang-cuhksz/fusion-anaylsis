@@ -26,6 +26,7 @@ def _load_k(path="model/ada_constants.json") -> DeviceConstants:
 
 def score_grouping(R, C, NOUT, width, dtype, k: DeviceConstants) -> dict:
     """Compile ONE width-`width` sibling kernel, read static inputs, predict the full-plan time."""
+    torch.cuda.empty_cache()   # keep free VRAM available (LOG-10 local-memory fallback)
     dt = getattr(torch, dtype) if isinstance(dtype, str) else dtype
     # build a width-sized case to obtain the compiled kernel's static inputs (single compile)
     case = reduction.make_case(R=R, C=C, NOUT=width, dtype=dt, GS=width,

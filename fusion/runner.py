@@ -38,6 +38,16 @@ def adaptive_iters(fn) -> tuple[int, int]:
 
 
 def run_case(family: str, params: dict) -> dict:
+    # PROPHYLACTIC (LOG-10 s1): keep torch's caching allocator from growing its RESERVED footprint past
+    # physical VRAM. When reserved oversubscribes physical (observed 7.8-8.1 GB on this 8 GB card),
+    # WSL2/WDDM permits it rather than failing, and the context's local-memory backing store can be left
+    # host-resident -- every spill then crosses PCIe, inflating SPILLING kernels only (non-spilling are
+    # untouched in ratio) and fabricating a too-severe "spill cliff".
+    # Honest scope: the trigger is oversubscription, NOT "free VRAM ~ 0" (free=0 with reserved BELOW
+    # physical is harmless). empty_cache() cannot REPAIR an already-poisoned context, so this is
+    # prevention, not a cure, and its efficacy is a design argument -- a direct A/B on a process that
+    # never oversubscribed showed no change. See tooling/repro_vram_artifact.py.
+    torch.cuda.empty_cache()
     case, dtype = build(family, params)
     diff = case.check()
     sf = from_triton(case.fused_kernels[0], name="fused")

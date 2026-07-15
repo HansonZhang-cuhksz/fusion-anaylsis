@@ -145,13 +145,13 @@ Legend: **[ADA]** = do on the Ada machine's Claude Code session · **[MX]** = do
 ### Phase 2 — Model formalization & fit  **[ADA]** ✅ DONE (LOG-02, LOG-03)
 - [x] Φ(v) taxonomy + tile/layout descriptors (`fusion/kernels/base.py`); analytical sm89 occupancy (`fusion/hw.py`) reproduces ncu *theoretical* occupancy exactly (the CUDA occupancy calculator; *achieved* occupancy is handled by the spill term, not predicted)
 - [x] `η_fused = min·P_occ·P_layout` from single-compile inputs (`model/costmodel.py`); `P_occ` (occupancy+spill), `P_layout` (bank-conflict) calibrated on Ada
-- [x] **RQ1 (64 genuine cases): in-sample F1=0.970 precision=1.000 recall=0.941; leave-one-NOUT-out F1=0.829, leave-one-dtype-out F1=0.970**; **RQ2a occupancy MAE=0.000 vs ncu theoretical**; **RQ2b attribution 12/12**
-- [x] Ablations: drop-spill F1→0.545 (spills dominant), drop-occupancy F1=0.97; vs greedy F1=0.00
-- **DoD:** ✅ in-sample F1=0.970 (recall 0.941 — catches 16/17 toxic; the 1 miss is a borderline no-spill NOUT=32 case, speedup 0.91); F1 held-out NOUT 0.829 / held-out dtype 0.970, on the 64 genuine cases; attribution matches profiler
+- [x] **RQ1 (64 genuine cases, corrected dataset — LOG-10): in-sample F1=1.000 precision=1.000 recall=1.000; leave-one-dtype-out F1=0.968; leave-one-NOUT-out F1=0.667**; **RQ2a occupancy MAE=0.000 vs ncu theoretical**; **RQ2b attribution 12/12**
+- [x] Ablations: drop-spill F1→0.000 (spills dominant), drop-occupancy F1=1.000 (inert); vs greedy F1=0.00
+- **DoD:** ⚠️ *met on the metric, but the metric is uninformative here.* The 64 Ada cases are **trivially separable by `f_spills>0`** (48/48 beneficial at 0 spills, 16/16 toxic at >0), so a **zero-parameter rule also scores F1=1.000** and scores leave-one-NOUT-out **1.000** where the fitted model gets **0.667** — i.e. the fitted model is tied in-sample and **strictly dominated out-of-fold**. F1=1.000 is **not evidence for the cost model**; the discriminating evidence must come from C500 (the spilling-but-*beneficial* fp16 128×128 tile; the reread term). RQ2 attribution does match the profiler. See LOG-10 §3.
 
 ### Phase 3 — Compiler pass & end‑to‑end  **[ADA]** ✅ DONE (LOG-03)
 - [x] Offline recommender (`model/recommender.py`) — the PROPOSAL §5.4 sanctioned fallback; decides from single-compile static resource reports
-- [x] End-to-end on 3 subgraphs vs greedy/oracle/none (`fusion/endtoend.py`): **model 6.2–9.7× vs greedy** (up to 9.72× — a constructed worst-case for greedy, subgraphs built with wide over-fused layers), **= oracle (1.00×) on all 3 subgraphs**; decide wall ≤26 ms (compiles only, no timing)
+- [x] End-to-end on 3 subgraphs vs greedy/oracle/none (`fusion/endtoend.py`): **model 5.81–8.65× vs greedy** (a constructed worst-case for greedy — subgraphs built with wide over-fused layers), **= oracle (1.00×) on all 3 subgraphs**; decide wall ≤26 ms (compiles only, no timing). *(These numbers are a re-measurement; the earlier 6.2–9.7× was NOT contaminated by the LOG-10 artifact — this harness never entered the oversubscribed regime — the shift is ordinary run-to-run variation.)*
 - [x] Frozen model spec (`model/MODEL_SPEC.md`) + fitted constants (`model/ada_constants.json`)
 - **DoD:** ✅ end-to-end speedup on ≥2 subgraphs; frozen spec ready for MX phase
 

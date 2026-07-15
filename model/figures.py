@@ -84,11 +84,11 @@ def main():
         fig_occ_validation(ncu)
     except FileNotFoundError:
         print("skip occ validation (no ncu csv)")
-    # RQ4 numbers pulled from the end-to-end run (kept in-sync with logs/run_endtoend.log,
-    # clean 64-genuine-case refit). Model == oracle on all three subgraphs.
-    rq4 = [("wide_multiproj", {"greedy": 157.96, "model": 16.25, "oracle": 16.25, "none": 20.45}),
-           ("mixed_widths", {"greedy": 67.29, "model": 10.90, "oracle": 10.90, "none": 13.67}),
-           ("fp32_block", {"greedy": 30.52, "model": 4.11, "oracle": 4.11, "none": 4.62})]
+    # RQ4 numbers from logs/run_endtoend.log, re-measured AFTER the LOG-10 VRAM/local-memory fix.
+    # Model == oracle on all three subgraphs.
+    rq4 = [("wide_multiproj", {"greedy": 192.14, "model": 22.22, "oracle": 22.22, "none": 25.25}),
+           ("mixed_widths", {"greedy": 85.48, "model": 14.70, "oracle": 14.70, "none": 17.48}),
+           ("fp32_block", {"greedy": 38.95, "model": 5.25, "oracle": 5.25, "none": 5.98})]
     fig_rq4(rq4)
 
 

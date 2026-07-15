@@ -1,0 +1,6 @@
+claim,device,expected,median_speedup,ci_lo,ci_hi,verdict,significant,rounds
+redux_N32_fp16,ada,beneficial,1.011,1.01,1.013,beneficial,sig,20
+redux_N32_fp32,ada,beneficial(flip),1.04,1.04,1.041,beneficial,sig,20
+redux_N64_fp32,ada,TOXIC,0.893,0.893,0.898,TOXIC,sig,20
+gemm_128_fp16,ada,beneficial,1.164,1.124,1.19,beneficial,sig,20
+gemm_128_fp32,ada,beneficial(flip),1.083,1.072,1.104,beneficial,sig,20
