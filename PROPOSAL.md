@@ -192,7 +192,11 @@ Legend: **[ADA]** = do on the Ada machine's Claude Code session · **[MX]** = do
 
 ## 10. Expected contributions & target venue
 
-**Contributions:** (1) a search‑free, interpretable fusion‑rejection criterion with single‑compile inputs; (2) the first fusion characterization + cost‑model transfer to the MetaX C500; (3) a working static pruning prototype with penalty attribution; (4) an open dataset + artifact.
+> **Status: Phases 0–4 executed. Consolidated results (RQ1–RQ4, with honest limitations) are in
+> [`RESULTS.md`](RESULTS.md); detailed logs `logs/LOG-01…08`. This section states the intended
+> contributions; RESULTS.md reports what was actually found.**
+
+**Contributions:** (1) a search‑free, interpretable fusion‑rejection criterion with single‑compile inputs (now with a **taxonomy‑derived spill‑traffic** term); (2) the first fusion characterization + cost‑model transfer to the MetaX C500, with a **documented decision‑flip** and **MCPTI‑validated** attribution; (3) a working static pruning prototype with penalty attribution, plus a **real‑compiler (Inductor) validation**; (4) an open dataset + artifact.
 
 **Honest framing:** an *empirical + systems* contribution, not a theoretical breakthrough. Realistic homes: **MLSys / a compiler or systems‑for‑ML workshop**, or an arXiv report + thesis chapter. The domestic‑GPU cross‑vendor angle is the differentiator that a Hopper‑rich lab would not produce.
 
