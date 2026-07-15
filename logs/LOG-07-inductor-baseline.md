@@ -35,5 +35,24 @@ extract Inductor's Triton + its register/spill report (future work — then the 
 Inductor's own fusion outcomes* per kernel). The regime-level agreement + the toxic-over-fusion cases
 already make the point.
 
-## 5. Artifacts
-`fusion/inductor_baseline.py`; `data/microbench_inductor_c500.csv` (8 configs).
+## 6. The model predicts Inductor's fusion outcomes from its GENERATED kernels (closes §4 caveat)
+Hooked `triton.compile` to capture the single-compile static report (`n_regs`/`n_spills`) of the fused
+Triton kernel **Inductor actually generates** — the model's exact required inputs. Inductor fuses the
+elementwise chain into ONE kernel `triton_poi_fused_add_gelu_mul_sigmoid_0` (n_regs 14–42, no spills).
+Feeding that + analytic plan bytes to the model (`fusion/inductor_predict.py`) and comparing the
+MODEL's predicted fusion speedup to Inductor's MEASURED (eager vs compiled):
+
+| M×N | Inductor kernel regs | model speedup | measured speedup | sign |
+|---|---|---|---|---|
+| 1024²–8192² | 14–42 (no spill) | 1.4–4.5× | ~2.8× (flat) | **beneficial 5/5** |
+
+- **The model reads a REAL production compiler's own kernels and correctly predicts its fusion is
+  beneficial (5/5 sign)** — not hand-written microbenchmarks. This is the per-kernel version of §3.
+- **Honest limitations:** (i) elementwise fusions are ~always beneficial, so this is a *capability*
+  demo (the model consumes real compiler output), not a *discriminating* test; the discriminating
+  cases (compute-bound MLPs, §2–3) route to the vendor GEMM, which is not an Inductor Triton kernel
+  to score. (ii) Magnitude is only roughly right (analytic byte model for Inductor's fused plan is
+  approximate) — sign, not magnitude, is the claim.
+
+## 7. Artifacts
+`fusion/inductor_baseline.py`, `fusion/inductor_predict.py`; `data/microbench_inductor_c500.csv`.

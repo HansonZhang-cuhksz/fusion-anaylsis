@@ -83,9 +83,13 @@ static spill count says beneficial (§G2). Same dangerous direction (model *keep
       compiler + REAL patterns:** fusion benefit is regime-governed — memory-bound **1.9–3.65×**,
       compute-bound **0.74–1.06× (2/4 MLPs toxic)**. Even Inductor over-fuses net-harmfully when
       compute-bound → motivates the interpretable pruning pass.
-- [ ] (deepen) Use `TORCH_COMPILE_DEBUG` to read Inductor's generated Triton + its register/spill
-      report, and score it with the model per-kernel — i.e. **predict Inductor's own fusion outcomes**
-      (LOG-07 §4). Also: attention / FlashAttention-style block; TVM/Welder if available.
+- [x] **Predict Inductor's own fusion outcomes per-kernel** (LOG-07 §6): hooked `triton.compile` to
+      read the register/spill report of the fused Triton kernel Inductor emits; the model predicts its
+      fusion beneficial 5/5 (sign) on elementwise chains — the model consumes REAL compiler output.
+      Honest limits: capability demo (elementwise fusion ~always beneficial → not discriminating);
+      compute-bound cases route to the vendor GEMM (not an Inductor Triton kernel to score).
+- [ ] (deepen further) a *discriminating* real-compiler case (an Inductor Triton fusion that is
+      actually toxic — e.g. force spilling), attention / FlashAttention-style block, TVM/Welder.
 - [ ] Scale the dataset (add the GEMM family + more op-pairs to the fit, not just reductions/pointwise).
 - [ ] Run the GEMM family on **Ada** too (needs the Ada machine) for the cross-vendor GEMM comparison.
 
