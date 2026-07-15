@@ -88,8 +88,11 @@ static spill count says beneficial (§G2). Same dangerous direction (model *keep
       fusion beneficial 5/5 (sign) on elementwise chains — the model consumes REAL compiler output.
       Honest limits: capability demo (elementwise fusion ~always beneficial → not discriminating);
       compute-bound cases route to the vendor GEMM (not an Inductor Triton kernel to score).
-- [ ] (deepen further) a *discriminating* real-compiler case (an Inductor Triton fusion that is
-      actually toxic — e.g. force spilling), attention / FlashAttention-style block, TVM/Welder.
+- [~] Discriminating real-compiler case attempted (LOG-08): **honest negative** — Inductor's Triton
+      fusion is robustly beneficial (memory- *and* launch-savings; toxicity needs an uncompilable
+      recompute kernel). Reframes the model's value toward controlled kernels + weaker/domestic fusers.
+      Cleaner future angle: intercept an autotuner's *candidate* (spilling) tiles, or the C500 native fuser.
+- [ ] (breadth, later) attention / FlashAttention-style block; run the GEMM family on Ada; TVM/Welder.
 - [ ] Scale the dataset (add the GEMM family + more op-pairs to the fit, not just reductions/pointwise).
 - [ ] Run the GEMM family on **Ada** too (needs the Ada machine) for the cross-vendor GEMM comparison.
 
