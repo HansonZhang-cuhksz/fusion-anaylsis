@@ -35,9 +35,10 @@ def pack(k: DeviceConstants):
 
 
 def predict_times_row(row, k: DeviceConstants):
-    f = predict_time(row["flops"], row["bytes_fused"], row["f_occ"], row["f_spills"], 1, k)
+    f = predict_time(row["flops"], row["bytes_fused"], row["f_occ"], row["f_spills"], 1, k,
+                     reread=row.get("f_reread", 1.0))
     u = predict_time(row["flops"], row["bytes_unfused"], row["u_occ"], row["u_spills"],
-                     int(row["n_launches_unfused"]), k)
+                     int(row["n_launches_unfused"]), k, reread=row.get("u_reread", 1.0))
     return f["t"], u["t"]
 
 

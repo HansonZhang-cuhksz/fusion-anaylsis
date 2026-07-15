@@ -18,6 +18,16 @@ CONTRACTION = "contraction"
 PERMUTE = "permute"
 
 
+def spill_reread(producer_class: str, consumer_class: str) -> int:
+    """Taxonomy-derived spill re-read multiplier (makes Phi(v) load-bearing; see LOG-05).
+
+    A full-tile pointwise *epilogue* fused over a *spilling* producer (e.g. GEMM+bias+act) re-reads
+    the spilled accumulator (store + reload) at runtime, so its spill TRAFFIC ~ 2x the static spill
+    instruction COUNT. Producer=CONTRACTION, consumer=POINTWISE captures this; other fusions
+    (reduction, pointwise chain) write the accumulator once -> 1."""
+    return 2 if (producer_class == CONTRACTION and consumer_class == POINTWISE) else 1
+
+
 @dataclass
 class Case:
     family: str                 # "pointwise" | "reduction" | "transpose" | "gemm_epilogue"

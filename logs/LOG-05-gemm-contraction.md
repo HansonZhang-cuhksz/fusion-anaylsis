@@ -52,6 +52,35 @@ fusion toxic for a reason the search-free spill signal cannot see.
   GPUs, but timing CIs would confirm it is not a measurement artifact (cf. the earlier Ada fp32
   artifact). Worth a repeat-with-CIs pass.
 
-## 5. Artifacts
+## 5. Verified real + root-caused (not a measurement artifact)
+Re-timed with 150 iters (min-time, robust to noise): fp32 128×128 speedup **0.826 (mean 0.825, min
+0.826)** — the toxicity is **real and consistent**, not an artifact (cf. the earlier Ada fp32 artifact).
+MCPTI (fused-plan vs unfused-plan local/global instruction counts, `scratchpad/gemm_rootcause.py`):
+| config | f_spill / u_spill | **fused local** | **unfused local** | fused global | unfused global | speedup(min) |
+|---|---|---|---|---|---|---|
+| fp32 64×64 | 0 / 0 | 0 | 0 | 328K | 348K | 1.145 ✓ |
+| fp16 128×128 | 117 / 118 | 461K | 433K | 98K | 124K | 1.063 ✓ |
+| **fp32 128×128** | **205 / 234** | **950K** | **833K** | 172K | 198K | **0.826 ✗** |
+
+**Mechanism:** the fused kernel does **more local (spill) traffic (950K > 833K)** than the unfused
+GEMM, even though its static spill *instruction count* is LOWER (205 < 234) — its epilogue **re-reads
+the spilled accumulator** (bias+relu on spilled data). That extra local traffic (+117K) outweighs the
+saved global round-trip (−26K) → net toxic. **The single-compile spill COUNT ≠ runtime spill
+TRAFFIC**, so the search-free static signal has the wrong sign for epilogue-into-spilling-GEMM.
+
+## 6. Fix proof-of-concept (still search-free: a taxonomy-aware spill-TRAFFIC estimate)
+Model spill signal = `f_spills × reread_mult`, where `reread_mult = 2` when the fusion applies a
+full-tile epilogue over a spilling producer (≈ store + reload) — derivable from Φ(v)
+(CONTRACTION producer + POINTWISE consumer), else 1. Result on the 16 GEMM configs
+(`scratchpad/gemm_fix_poc.py`):
+- **baseline** (`reread_mult=1`): P=0 **R=0** F1=0 (FN=4 — misses all toxic).
+- **fix** (`reread_mult=2`): **R=1.0** (catches all 4 toxic), P=0.5 F1=0.667.
+Recovers the safety-critical recall (0→1). A *flat* ×2 over-rejects the beneficial fp16 big-tile
+(precision 0.5), so the proper fix is to add this reread-aware spill-traffic feature and **RE-FIT on
+the combined dataset** (reductions + pointwise + GEMM) to calibrate the threshold across families —
+which also finally gives the Φ(v) taxonomy a real job (closes G7).
+
+## 7. Artifacts
 - `fusion/kernels/gemm_epilogue.py`, `fusion/gemm_sweep.py`; `data/microbench_gemm_c500.csv` (16 rows).
-- Model-generalization check: `scratchpad/gemm_modelcheck.py` (promote to `model/` if kept).
+- Investigation: `scratchpad/gemm_modelcheck.py` (generalization fail), `gemm_rootcause.py` (MCPTI +
+  robust timing), `gemm_fix_poc.py` (the fix). Promote to `model/` when the re-fit lands.

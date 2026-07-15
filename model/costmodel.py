@@ -52,10 +52,16 @@ def layout_factor(bank_conf_per_elem: float, k: DeviceConstants) -> float:
 
 
 def plan_efficiency(occ: float, spills: int, k: DeviceConstants,
-                    bank_conf_per_elem: float = 0.0) -> dict:
-    """Effective throughput fraction 'eff' for one plan, with its interpretable factors."""
-    p_occ_occ = lam_occ(occ, k)          # occupancy component
-    p_occ_spill = spill_factor(spills, k)  # spill component (part of P_occ)
+                    bank_conf_per_elem: float = 0.0, reread: float = 1.0) -> dict:
+    """Effective throughput fraction 'eff' for one plan, with its interpretable factors.
+
+    `reread` scales the spill COUNT into a spill-TRAFFIC estimate: a fused kernel whose epilogue
+    re-reads a spilled accumulator (store + reload) moves more local traffic than the static spill
+    instruction count implies. Derived from the taxonomy Phi(v) (see spill_reread in fusion/hw.py):
+    reread=2 for an epilogue over a spilling producer, else 1. This closes the search-free model's
+    blind spot on GEMM-epilogue fusion (LOG-05)."""
+    p_occ_occ = lam_occ(occ, k)                            # occupancy component
+    p_occ_spill = spill_factor(spills * reread, k)         # spill component (traffic = count x reread)
     p_layout = layout_factor(bank_conf_per_elem, k)
     eff = p_occ_occ * p_occ_spill * p_layout
     return {"eff": max(k.occ_floor * 0.1, eff),
@@ -64,8 +70,8 @@ def plan_efficiency(occ: float, spills: int, k: DeviceConstants,
 
 
 def predict_time(flops: float, bytes_moved: float, occ: float, spills: int, n_launch: int,
-                 k: DeviceConstants, bank_conf_per_elem: float = 0.0) -> dict:
-    e = plan_efficiency(occ, spills, k, bank_conf_per_elem)
+                 k: DeviceConstants, bank_conf_per_elem: float = 0.0, reread: float = 1.0) -> dict:
+    e = plan_efficiency(occ, spills, k, bank_conf_per_elem, reread)
     eff = e["eff"]
     t_compute = flops / (k.C_peak * eff)
     t_mem = bytes_moved / (k.B_peak * eff)
@@ -82,10 +88,12 @@ def decide(row: dict, k: DeviceConstants) -> dict:
     """
     fused = predict_time(row["flops"], row["bytes_fused"], row["f_occ"], row["f_spills"],
                          n_launch=1, k=k,
-                         bank_conf_per_elem=row.get("f_bank_conf_per_elem", 0.0))
+                         bank_conf_per_elem=row.get("f_bank_conf_per_elem", 0.0),
+                         reread=row.get("f_reread", 1.0))
     unfused = predict_time(row["flops"], row["bytes_unfused"], row["u_occ"], row["u_spills"],
                           n_launch=row["n_launches_unfused"], k=k,
-                          bank_conf_per_elem=row.get("u_bank_conf_per_elem", 0.0))
+                          bank_conf_per_elem=row.get("u_bank_conf_per_elem", 0.0),
+                          reread=row.get("u_reread", 1.0))
     pred_beneficial = fused["t"] < unfused["t"]
 
     # ---- attribution: why is the fused plan degraded? compare penalty factors (lower = worse) ----
