@@ -241,19 +241,23 @@ zero genuinely toxic GEMM fusions, so **GEMM recall on Ada is undefined and shou
   in-sample and **beats it out-of-sample** (leave-one-NOUT-out 1.000 vs 0.667). Ada RQ1 supports "spilling
   ⇒ toxic on this benchmark", not the roofline model's structure. The accompanying bootstrap CI
   [1.000, 1.000] is a degenerate identity with no power.
-- **On the C500 the model beats the spill heuristic only *marginally*, and not on the hard cases
-  (LOG-11).** Where discriminating (**spill-but-beneficial**) cases exist (C500), the fitted model
-  *does* beat the trivial `f_spills>0 ⇒ toxic` rule **out-of-fold** — leave-one-dtype-out F1 **0.873**
-  (baseline) / **0.906** (with a principled dtype-aware compute term), vs the trivial rule's 0.857,
-  stable across seeds — so it is not *merely* a spill detector, and the dtype refinement genuinely helps.
-  **But** in-sample it is *tied/worse* (0.852 < 0.857) and, critically, both models get **7 of the 8**
+- **On the C500 the model beats the spill heuristic — modestly, and not on the hard cases (LOG-11).**
+  Where discriminating (**spill-but-beneficial**) cases exist (C500), the fitted model beats the trivial
+  `f_spills>0 ⇒ toxic` rule (0.857) **both in-sample (F1 0.873) and out-of-fold (leave-one-dtype-out
+  0.906)**, seed-stable — so it is not *merely* a spill detector. This uses a **now-integrated,
+  principled dtype-aware compute term** (`fp16_compute_mult`: fp16's ~2× FMA throughput scales the
+  compute roofline; a FIXED per-device constant, enabled on C500, off by default). Integrating it lifted
+  C500 in-sample 0.852→0.873 and out-of-fold 0.873→0.906, and **strengthened the decision-flip** (NOUT=32
+  fp32 predicted-toxic 3/4→4/4) with no family regressing. **But** both models still get **7 of the 8**
   discriminating cases **wrong**: those fp16 cases have **static inputs identical to their toxic fp32
   twins** (f_regs=256, f_spills=100, f_occ=0.25; only dtype differs), so the fp16-vs-fp32 distinction is
-  **not cracked**. The out-of-fold gain is modest (~0.02–0.05 F1 on 80 cases) and comes from
-  generalization, not from solving the hard cases. *Independently verified; two of my own analysis errors
-  (a scripting bug and under-converged fits) were caught and corrected in the process.* ⇒ Honest claim:
-  the model adds **modest out-of-fold value over the spill heuristic**, not a decisive win; its clearest
-  contribution remains the **cross-vendor transfer of the spill signal** (the bilateral decision-flip).
+  **not cracked** — the model beats trivial by higher precision (rescues 1 case) + recall, not by solving
+  the hard cases, and the margin is modest on 80 cases. The term is **regime-specific**: on Ada (0
+  discriminating cases, spill-separable) it gives no benefit and mildly regresses out-of-fold, so it is
+  correctly left off there. *Independently verified; two of my own analysis errors (a scripting bug and
+  under-converged fits) were caught and corrected in the process.* ⇒ Honest claim: the model adds
+  **modest, converged value over the spill heuristic and strengthens the flip**, not a decisive win on
+  the hardest cases; its clearest contribution remains the **cross-vendor transfer of the spill signal**.
 - **The spill penalty does not extrapolate across spill magnitudes.** Leave-one-NOUT-out **F1 0.667
   (recall 0.500)**: `gamma_spill` is identifiable *only* from the extreme-spill (1986) regime — hold that
   out and the fit collapses it to ~1e-8, abandoning the spill term despite toxic 300-spill rows in

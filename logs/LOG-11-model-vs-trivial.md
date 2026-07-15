@@ -54,5 +54,26 @@ Candidate B = dtype-aware compute (fp16 arithmetic ≈ 2× fp32), injected as ef
   value over the spill heuristic, and a principled dtype-aware compute term improves it — but it does not
   solve the hardest spill-but-beneficial cases, which need a compute-serialization model and/or a larger
   dataset."* Not the clean "beats it decisively" of an earlier draft, nor the "it's just a spill
-  detector" I wrongly wrote — the honest middle. (Refinement B validated but not yet integrated into
-  `costmodel.py`; integrating it would cascade a re-fit of all C500 numbers — flagged, not done here.)
+  detector" I wrongly wrote — the honest middle.
+
+## Step 5 — Integration (the dtype-aware compute term is now IN the model, per-device)
+`costmodel.py` gains `DeviceConstants.fp16_compute_mult` (FIXED physics = fp16's ~2× FMA throughput,
+default **1.0 = off**; applied to the compute roofline only, `t_compute = flops/(C_peak·eff·mult)`),
+threaded through `predict_time`/`decide`/`fit`. **Enabled per-device by validation, not blanket:**
+
+| dataset | mult | in-sample F1 | LOO-dtype F1 | decision-flip (NOUT=32 fp32 → toxic) | verdict |
+|---|---|---|---|---|---|
+| C500 combined | 1.0 | 0.852 | 0.873 | 3/4 | baseline |
+| **C500 combined** | **2.0** | **0.873** | **0.906** | **4/4** | **ENABLED** — beats trivial 0.857 in-sample *and* out-of-fold; strengthens the flip; no family regresses |
+| Ada combined | 1.0 | 0.875 | 0.875 | n/a (Ada benef) | baseline |
+| Ada combined | 2.0 | 0.875 | **0.839** | n/a | **left OFF** — Ada has 0 discriminating cases (spill-separable), so the term can't help and mildly hurts out-of-fold |
+
+- **Saved:** `model/c500_combined_constants.json` → `fp16_compute_mult: 2.0` (verified reproducing from
+  disk: in-sample F1 0.873, flip 4/4). All other constants files keep the 1.0 default (unaffected).
+- **Isolation confirmed:** the reduction-only transfer (`transfer_c500`, uses `c500_constants`) is
+  **unchanged** (RQ3 F1=0.909, flip intact); the 5-case Inductor prediction is **unchanged** (fp32, so
+  the term is inert). Only the combined-dataset decisions move.
+- **Honest scope:** this is a *regime-specific* refinement. It changes a decision only where
+  spill-but-beneficial fp16 cases exist (the C500 register-allocation regime); on Ada that regime doesn't
+  occur, so the term is correctly off. It still gets **7/8** C500 discriminating cases wrong — it beats
+  the trivial rule by higher precision (rescues 1 case) + recall, **not** by cracking fp16-vs-fp32.

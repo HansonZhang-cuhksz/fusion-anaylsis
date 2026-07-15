@@ -19,7 +19,7 @@ PARAM_NAMES = ["C_peak", "B_peak", "T_launch", "occ_knee", "gamma_spill"]
 LOG_PARAMS = {"C_peak", "B_peak", "T_launch", "gamma_spill"}
 
 
-def unpack(theta) -> DeviceConstants:
+def unpack(theta, fp16_mult: float = 1.0) -> DeviceConstants:
     d = {}
     for name, val in zip(PARAM_NAMES, theta):
         d[name] = float(np.exp(val)) if name in LOG_PARAMS else float(val)
@@ -27,6 +27,7 @@ def unpack(theta) -> DeviceConstants:
     # so occupancy above ~0.35 buys no more latency-hiding. Prevents over-penalising the
     # low-occupancy-but-bandwidth-saturated reductions.
     d["occ_knee"] = min(0.35, max(0.08, d["occ_knee"]))
+    d["fp16_compute_mult"] = fp16_mult   # FIXED physics, not fitted (default 1.0 == off)
     return DeviceConstants(**d)
 
 
@@ -35,18 +36,20 @@ def pack(k: DeviceConstants):
 
 
 def predict_times_row(row, k: DeviceConstants):
+    cm = k.fp16_compute_mult if row.get("dtype") == "float16" else 1.0
     f = predict_time(row["flops"], row["bytes_fused"], row["f_occ"], row["f_spills"], 1, k,
-                     reread=row.get("f_reread", 1.0))
+                     reread=row.get("f_reread", 1.0), compute_mult=cm)
     u = predict_time(row["flops"], row["bytes_unfused"], row["u_occ"], row["u_spills"],
-                     int(row["n_launches_unfused"]), k, reread=row.get("u_reread", 1.0))
+                     int(row["n_launches_unfused"]), k, reread=row.get("u_reread", 1.0),
+                     compute_mult=cm)
     return f["t"], u["t"]
 
 
-def loss(theta, df, w_ratio=1.0, w_abs=0.3):
+def loss(theta, df, w_ratio=1.0, w_abs=0.3, fp16_mult=1.0):
     """Combined objective: the fuse/don't-fuse decision depends only on the fused/unfused time
     RATIO, so we fit log(speedup) primarily (w_ratio); a down-weighted absolute-time term (w_abs)
     keeps B_peak / T_launch physically meaningful for the roofline interpretation."""
-    k = unpack(theta)
+    k = unpack(theta, fp16_mult)
     err = 0.0
     for _, row in df.iterrows():
         tf, tu = predict_times_row(row, k)
@@ -58,17 +61,17 @@ def loss(theta, df, w_ratio=1.0, w_abs=0.3):
     return err / len(df)
 
 
-def fit(df, restarts=6, seed=0) -> DeviceConstants:
+def fit(df, restarts=6, seed=0, fp16_mult=1.0) -> DeviceConstants:
     rng = np.random.default_rng(seed)
     best, best_loss = None, np.inf
     x0_base = pack(DeviceConstants())
     for r in range(restarts):
         x0 = np.array(x0_base) + (rng.standard_normal(len(x0_base)) * 0.7 if r else 0)
-        res = minimize(loss, x0, args=(df,), method="Nelder-Mead",
+        res = minimize(loss, x0, args=(df, 1.0, 0.3, fp16_mult), method="Nelder-Mead",
                        options={"maxiter": 4000, "xatol": 1e-4, "fatol": 1e-7})
         if res.fun < best_loss:
             best_loss, best = res.fun, res.x
-    k = unpack(best)
+    k = unpack(best, fp16_mult)
     return k, best_loss
 
 

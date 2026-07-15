@@ -22,9 +22,16 @@ Both are C500-side (do **not** need Ada); they are the sharpest current gaps. Wo
       under-converged `restarts=3` fits that wrongly read as "overfits/negative"; an adversarial verifier
       caught the second and I confirmed the correction.)* Outcome: honest claim = "modest out-of-fold gain,
       hard cases unsolved," not a decisive win nor "just a spill detector".
-- [ ] **Follow-up (optional):** integrate the validated dtype-aware compute term into `costmodel.py`
-      (0.873→0.906 out-of-fold) — cascades a re-fit of all C500 numbers; and/or a compute-serialization
-      spill model + larger dataset to actually crack the fp16-vs-fp32 discriminating cases.
+- [x] **Follow-up (b) — integrate the dtype-aware compute term. DONE (LOG-11 §5).** Added
+      `DeviceConstants.fp16_compute_mult` (fp16 ~2× FMA throughput; FIXED per-device, default off),
+      threaded through `predict_time`/`decide`/`fit`; enabled on C500 (`c500_combined_constants.json`:
+      2.0) → in-sample F1 0.852→**0.873**, LOO-dtype 0.873→**0.906**, decision-flip fp32-toxic 3/4→**4/4**,
+      no regressions; left off on Ada (0 discriminating cases → mild out-of-fold regression 0.875→0.839).
+      Reduction-only transfer (RQ3 0.909) and Inductor demo unaffected (verified).
+- [ ] **Still open — crack the discriminating cases.** The integrated term still gets **7/8** C500
+      spill-but-beneficial fp16 cases wrong. A real fix needs a spill-as-**compute-serialization** model
+      (so fp16's throughput actually separates the static-identical fp16/fp32 twins) **and** a larger,
+      non-trivially-separable dataset. Deferred (separating 8 cases risks overfitting).
 - [ ] **#2 — Why does the C500 toolchain allocate 1.6–1.75× more regs/thread than ptxas?** The flip
       mechanism is register-allocation divergence, not wavefront width (refuted, LOG-10 §2), but the
       *cause* (compiler maturity vs ISA/accumulator layout) is unidentified. C500-side investigation:

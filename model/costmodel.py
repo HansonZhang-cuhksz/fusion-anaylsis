@@ -31,6 +31,11 @@ class DeviceConstants:
     gamma_spill: float = 2.0e-3  # spill sensitivity: eff *= 1/(1+gamma*spills) (fitted)
     beta_layout: float = 1.0e-3  # bank-conflict sensitivity (fitted; per-conflict-cycle)
     occ_floor: float = 0.06     # minimum efficiency floor to avoid div-by-0
+    # dtype-aware compute-throughput factor: fp16 (non-tensor) arithmetic runs at ~2x fp32 FMA
+    # throughput, so the compute term is that much cheaper for fp16. FIXED physics (not fitted);
+    # DEFAULT 1.0 == OFF (backward-compatible) -- a constants file opts in by setting it to 2.0.
+    # Validated on C500: it lifts the leave-one-dtype-out decision F1 0.873 -> 0.906 (LOG-11).
+    fp16_compute_mult: float = 1.0
 
     def as_dict(self):
         return asdict(self)
@@ -70,10 +75,13 @@ def plan_efficiency(occ: float, spills: int, k: DeviceConstants,
 
 
 def predict_time(flops: float, bytes_moved: float, occ: float, spills: int, n_launch: int,
-                 k: DeviceConstants, bank_conf_per_elem: float = 0.0, reread: float = 1.0) -> dict:
+                 k: DeviceConstants, bank_conf_per_elem: float = 0.0, reread: float = 1.0,
+                 compute_mult: float = 1.0) -> dict:
     e = plan_efficiency(occ, spills, k, bank_conf_per_elem, reread)
     eff = e["eff"]
-    t_compute = flops / (k.C_peak * eff)
+    # compute_mult>1 makes the compute term cheaper (e.g. fp16's ~2x FMA throughput). It scales the
+    # compute roofline only, not memory -- so it shifts the compute/memory balance dtype-dependently.
+    t_compute = flops / (k.C_peak * eff * compute_mult)
     t_mem = bytes_moved / (k.B_peak * eff)
     t = max(t_compute, t_mem) + n_launch * k.T_launch
     return {"t": t, "t_compute": t_compute, "t_mem": t_mem,
@@ -84,16 +92,18 @@ def decide(row: dict, k: DeviceConstants) -> dict:
     """Search-free fuse/don't-fuse decision + attribution from a dataset row's STATIC features.
 
     Expected static keys: flops, bytes_fused, bytes_unfused, f_occ, f_spills, u_occ, u_spills,
-    n_launches_unfused, and optional f_bank_conf_per_elem / u_bank_conf_per_elem.
+    n_launches_unfused, and optional f_bank_conf_per_elem / u_bank_conf_per_elem, dtype.
     """
+    # dtype-aware compute throughput (same dtype for both plans; only nonneutral if fp16_compute_mult>1).
+    cmult = k.fp16_compute_mult if row.get("dtype") == "float16" else 1.0
     fused = predict_time(row["flops"], row["bytes_fused"], row["f_occ"], row["f_spills"],
                          n_launch=1, k=k,
                          bank_conf_per_elem=row.get("f_bank_conf_per_elem", 0.0),
-                         reread=row.get("f_reread", 1.0))
+                         reread=row.get("f_reread", 1.0), compute_mult=cmult)
     unfused = predict_time(row["flops"], row["bytes_unfused"], row["u_occ"], row["u_spills"],
                           n_launch=row["n_launches_unfused"], k=k,
                           bank_conf_per_elem=row.get("u_bank_conf_per_elem", 0.0),
-                          reread=row.get("u_reread", 1.0))
+                          reread=row.get("u_reread", 1.0), compute_mult=cmult)
     pred_beneficial = fused["t"] < unfused["t"]
 
     # ---- attribution: why is the fused plan degraded? compare penalty factors (lower = worse) ----
