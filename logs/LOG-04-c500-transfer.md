@@ -1,5 +1,15 @@
 # LOG-04 — MetaX C500 cross-vendor transfer  [Phase 4]
 
+> **[2026-07-15] MECHANISM CORRECTION — read this first.** The "64-wide wavefront doubles register
+> pressure" explanation for the decision-flip (below, §3 and §4) is **REFUTED** (LOG-10 §2; verified
+> here). The C500's register file per CU is doubled *in lockstep* (131072 vs 65536), so wave width and
+> capacity cancel — both devices hold the same resident-wave counts, and wave width predicts the *wrong*
+> direction. The real signal: the **C500 toolchain allocates 1.6–1.75× more registers/thread than
+> ptxas for identical non-spilling kernels** (64×64 fp16 84→134, fp32 96→168), saturating its 256-reg
+> cap where Ada lands at 255. Cause (compiler maturity vs ISA/accumulator layout) is unidentified. The
+> **decision-flip phenomenon still holds** (now bilateral: reduction *and* GEMM, CI-backed — LOG-10 §3);
+> only the mechanism sentence was wrong. `RESULTS.md` / `MODEL_SPEC.md §7` carry the corrected text.
+
 Date: 2026-07-14 · Machine: MetaX C500 ×4 (MACA 3.7.0), env `fusion` · Session: MetaX (this machine)
 
 Phase 4 = the core-novelty transfer (PROPOSAL §8 / TODO G1): re-parameterize the frozen model to the
@@ -35,9 +45,9 @@ smooth occupancy term is inert (spills dominate, per Ada), so P_occ precision is
 - Same fixed 72-case matrix (`fusion/matrix.py`) → directly comparable to the Ada dataset.
 
 ## 3. Early cross-vendor signal (before full dataset)
-Same kernel `sibling_redux NOUT=64 fp16 R=C=2048`: **C500 spills 524 vs Ada 300** — the tighter/wider
-64-wide-wave register pressure makes C500 spill more per case. This is the mechanism the decision-flip
-thesis predicts (sharper spill cliff on C500). NOUT=128 may cross the hard 4 KB cap → **launch
+Same kernel `sibling_redux NOUT=64 fp16 R=C=2048`: **C500 spills 524 vs Ada 300** — the C500 toolchain's
+higher register allocation (see the correction banner: 1.6–1.75× more regs/thread than ptxas) makes it
+spill more per case. (Original text attributed this to 64-wide-wave register pressure — refuted.) NOUT=128 may cross the hard 4 KB cap → **launch
 failure** (a fusion that merely spills-but-runs on Ada becoming *illegal* on C500) = the cleanest flip.
 
 ## 4. Cross-vendor results (full 72-case C500 matrix; `data/microbench_timing_c500.csv`, 0 skips)
@@ -53,9 +63,10 @@ Reproduce: `python -m model.transfer_c500`. Reduction comparison (mean over 4 sh
 | 128 | fp32 | 1868 | 0.01 | ✗ | 848 | 0.26 | ✗ | both toxic |
 
 **The decision-flip (the paper's core result).** `sibling_redux NOUT=32 fp32` is **beneficial on Ada
-(0 spills, 1.04×) but toxic on C500 (100 spills, 0.67×)** — consistent across all 4 shapes. Mechanism:
-the C500's **64-wide wavefront** doubles register pressure per wave, so the fused NOUT=32 kernel spills
-on C500 where it fits in registers on Ada's 32-wide waves. The **same model, fed each device's compile
+(0 spills, 1.04×) but toxic on C500 (100 spills, 0.67×)** — consistent across all 4 shapes. Mechanism
+(CORRECTED — see banner): the **C500 toolchain allocates more registers/thread than ptxas**, so the
+fused NOUT=32 kernel spills on C500 where it fits in registers on Ada — *not* a 64-wide-wavefront effect
+(refuted). The **same model, fed each device's compile
 report, flips its verdict**: BENEFICIAL on Ada (reads 0 spills) → TOXIC on C500 (reads 100 spills). No
 model change — just the re-read single-compile static input.
 

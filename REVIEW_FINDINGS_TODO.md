@@ -11,6 +11,27 @@ MLSys-short scale that `RESULTS.md` scopes — but it is not complete.** Three r
 
 ---
 
+## Bucket 0 — The two substantive open items surfaced by the Ada adversarial review (LOG-10) — DO HERE (C500)
+Both are C500-side (do **not** need Ada); they are the sharpest current gaps. Working log: `logs/LOG-11-*`.
+- [x] **#1 — Does the cost model beat the trivial `spill>0 ⇒ toxic` rule? → MARGINALLY YES out-of-fold,
+      but it does NOT solve the hard cases (LOG-11).** Converged (restarts=12, seed-stable, verified):
+      leave-one-dtype-out F1 **0.873** baseline / **0.906** with a dtype-aware compute term, vs trivial
+      **0.857** — so the model adds modest out-of-fold value and the dtype refinement helps. BUT in-sample
+      it's tied/worse (0.852) and both get **7/8 discriminating cases wrong** (fp16 spill-but-beneficial,
+      static-identical to toxic fp32 twins). *(I made two method errors here — a scripting bug and
+      under-converged `restarts=3` fits that wrongly read as "overfits/negative"; an adversarial verifier
+      caught the second and I confirmed the correction.)* Outcome: honest claim = "modest out-of-fold gain,
+      hard cases unsolved," not a decisive win nor "just a spill detector".
+- [ ] **Follow-up (optional):** integrate the validated dtype-aware compute term into `costmodel.py`
+      (0.873→0.906 out-of-fold) — cascades a re-fit of all C500 numbers; and/or a compute-serialization
+      spill model + larger dataset to actually crack the fp16-vs-fp32 discriminating cases.
+- [ ] **#2 — Why does the C500 toolchain allocate 1.6–1.75× more regs/thread than ptxas?** The flip
+      mechanism is register-allocation divergence, not wavefront width (refuted, LOG-10 §2), but the
+      *cause* (compiler maturity vs ISA/accumulator layout) is unidentified. C500-side investigation:
+      the ST/MT split, tensor-core accumulator layout, SASS/PTX. (Ada reg counts already committed.)
+
+---
+
 ## Bucket 1 — Hardware-gated (cannot be done in this MetaX session) → see `HANDOFF-ADA-BUCKET1.md`
 Open only because the hardware isn't here, not because they're skipped. Instructions for the Ada
 session are in **`HANDOFF-ADA-BUCKET1.md`**.
