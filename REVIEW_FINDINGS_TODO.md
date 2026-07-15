@@ -50,8 +50,17 @@ is the decisive signal across BOTH op families. **BUT the spill-count model then
 cases** (recall 0/4): the toxic fp32-128×128 configs have fused `f_spills=205` < unfused `u_spills=234`,
 so the model predicts *beneficial* while the fusion is measured *toxic* — the static spill count has the
 **wrong sign** (the fused epilogue re-reads spilled state; static count misses that runtime cost).
-- [ ] Add a **non-spill / runtime-spill-aware cost signal** (fused shared/local-mem *bytes* via MCPTI,
-      or an occupancy×compute term) so the model catches the GEMM-toxic regime the spill count misses.
+**VERIFIED + root-caused (LOG-05 §5–6):** toxicity is real (min-time 150 iters = 0.826, not an
+artifact); MCPTI confirms fused local traffic **950K > unfused 833K** (epilogue re-reads spilled acc).
+**Fix POC works:** spill-*traffic* = `f_spills × reread_mult` (2 for epilogue-into-spilling-producer,
+from Φ(v)) flips recall **0→1.0** on GEMM. Flat ×2 costs precision (0.5), so →
+- [x] **Implemented the reread-aware spill-traffic feature + re-fit on the combined dataset** (LOG-06):
+      `spill_reread()` in `base.py` (taxonomy-derived), threaded through `costmodel.py`/`fit.py`
+      (backward-compatible, default 1); combined C500 set via `build_combined_c500.py`. **Result:
+      GEMM recall 0→1.000, reductions unchanged (F1=0.905), overall F1 0.826→0.852, Ada RQ1 unchanged
+      (0.970).** Constants: `model/c500_combined_constants.json`. **Closes G7** (Φ(v) now load-bearing).
+- [ ] Refine the residual: GEMM precision 0.5 (flat ×2 over-rejects fp16 big-tile) — a dtype/compute-
+      aware reread or spill-traffic estimate to separate fp16-benign from fp32-toxic at equal spills.
 - [ ] (still open) Find a regime where P_occ / P_layout genuinely *compete* without spilling at all —
       GEMM-epilogue didn't (its big round-trip saving makes it spill-or-beneficial); try **horizontal
       multi-GEMM fusion** (fuse-wide drops occupancy but saves little), the GEMM analog of Family R.
@@ -68,9 +77,15 @@ static spill count says beneficial (§G2). Same dangerous direction (model *keep
       beneficial 12/16, toxic 4/16 (fp32 big-tile). See `logs/LOG-05`.
 - [ ] Still missing taxonomy classes: **BROADCAST**; **softmax / LayerNorm** fusions (the user's
       "normalization-into-GEMM/attention" PDF is a good anchor).
-- [ ] Replace the 3 *synthetic* subgraphs with **≥1 real transformer subgraph** (attention / MLP-FFN /
-      LayerNorm+Linear) for RQ4.
-- [ ] Compare against a **real compiler** baseline (torch.compile/Inductor default fusion; ideally TVM/Welder).
+- [x] **Real transformer subgraphs + real-compiler baseline** (LOG-07): `torch.compile`/**Inductor
+      works on the C500** (first demo); swept a memory-bound pointwise/residual chain + a compute-bound
+      MLP-FFN (`fusion/inductor_baseline.py`, 4-GPU). **Result validates the model's thesis on a REAL
+      compiler + REAL patterns:** fusion benefit is regime-governed — memory-bound **1.9–3.65×**,
+      compute-bound **0.74–1.06× (2/4 MLPs toxic)**. Even Inductor over-fuses net-harmfully when
+      compute-bound → motivates the interpretable pruning pass.
+- [ ] (deepen) Use `TORCH_COMPILE_DEBUG` to read Inductor's generated Triton + its register/spill
+      report, and score it with the model per-kernel — i.e. **predict Inductor's own fusion outcomes**
+      (LOG-07 §4). Also: attention / FlashAttention-style block; TVM/Welder if available.
 - [ ] Scale the dataset (add the GEMM family + more op-pairs to the fit, not just reductions/pointwise).
 - [ ] Run the GEMM family on **Ada** too (needs the Ada machine) for the cross-vendor GEMM comparison.
 
@@ -85,9 +100,10 @@ static spill count says beneficial (§G2). Same dangerous direction (model *keep
       recommender — the sanctioned fallback).
 - [ ] Report **real end-to-end model latency**, not synthetic-subgraph microbench sums.
 
-## G7 — Minor / writeup
-- [ ] The Φ(v) taxonomy is currently decorative (the model uses regs/spills/bytes/occupancy) — either
-      use it substantively or de-emphasize it in the writeup.
+## G7 — Make Φ(v) taxonomy substantive  ✅ DONE
+- [x] The Φ(v) taxonomy is now **load-bearing**: `spill_reread(producer, consumer)` (`base.py`) derives
+      the spill-traffic re-read multiplier from the topological classes (CONTRACTION→POINTWISE ⇒ ×2),
+      and it fixes the GEMM blind spot (G2, LOG-06). The taxonomy is no longer decorative.
 
 ---
 **Target venue (honest):** G1 + a second GPU (G5) + one real subgraph (G4) → **workshop paper or
