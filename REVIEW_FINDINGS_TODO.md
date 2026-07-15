@@ -99,8 +99,10 @@ static spill count says beneficial (§G2). Same dangerous direction (model *keep
 ## G5 — Single, noisy hardware point
 - [ ] Add the **Ampere sm80** GPU (available) — cheap second NVIDIA point; de-risks single-device overfit
       and strengthens "transfer by re-parameterization."
-- [ ] Report timing with **variance / CIs** and more iterations (the fp32 "3.03×→artifact" episode shows
-      the laptop timing is noisy; RQ4 model=oracle currently rests on single-shot laptop timings).
+- [x] **Timing with 95% CIs** (`fusion/timing_ci.py`, LOG-09): the key C500 claims measured with 20
+      rounds on **4 independent GPUs** → all significant (CI excludes 1.0), cross-device-reproducible to
+      ~3 decimals. Decision-flip CI [0.638, 0.645]; GEMM toxicity CI [0.821, 0.827]. `data/timing_ci_c500.csv`.
+- [ ] Same CI pass on the **Ada machine** (RQ1 F1, the Ada half of the decision-flip) — needs Ada.
 
 ## G6 — No real compiler integration
 - [ ] Wire the recommender into an actual **Inductor/Triton scheduler hook** (currently the offline

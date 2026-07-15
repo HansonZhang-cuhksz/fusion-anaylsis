@@ -40,7 +40,8 @@ in `model/MODEL_SPEC.md`; open items in `REVIEW_FINDINGS_TODO.md`.*
 - **Transfer.** Swapping only `DeviceConstants` + `HardwareModel` (formulas frozen), the C500 model gets
   **decision F1 0.909, recall 1.000**; re-fit `B_peak ≈ 1.05 TB/s` sanity-checks against C500 HBM.
 - **Decision-flip** (the headline). `sibling_redux NOUT=32 fp32` is **beneficial on Ada** (0 spills,
-  1.04×) but **toxic on C500** (100 spills, 0.67×), consistent across all 4 shapes. The *same* model,
+  1.04×) but **toxic on C500** (100 spills; median **0.64×, 95% CI [0.638, 0.645]** on 4 independent
+  GPUs × 20 rounds — significant, LOG-09), consistent across all 4 shapes. The *same* model,
   fed each device's compile report, flips its verdict. Mechanism: the C500's **64-wide wavefront**
   doubles register pressure, so the fusion spills at a *smaller* NOUT than on Ada's 32-wide warps.
 - **Honest nuance.** The binary decision is spill-dominated, so applying the *Ada* constants to C500 data
@@ -67,7 +68,8 @@ in `model/MODEL_SPEC.md`; open items in `REVIEW_FINDINGS_TODO.md`.*
 ## Cross-cutting finding: static spill *count* → spill *traffic*
 On the CONTRACTION (GEMM-epilogue) family the search-free model **failed** (recall 0/4 on the toxic
 fp32 big-tile configs): the fused kernel's static spill *count* (205) is *lower* than the unfused
-(234), so the model predicted "beneficial" while the fusion is measured **toxic (0.78×)**. MCPTI
+(234), so the model predicted "beneficial" while the fusion is measured **toxic** (0.78× mean over
+shapes; median 0.82×, 95% CI [0.821, 0.827] on 4 GPUs — significant, LOG-09). MCPTI
 root-cause: the fused kernel's epilogue **re-reads the spilled accumulator**, moving *more* local
 traffic (950K vs 833K) than the count implies — the static count has the wrong sign. The fix (spill
 traffic = count × taxonomy-derived reread) recovers **GEMM recall 0→1.0** with **reductions unchanged**
@@ -91,8 +93,11 @@ LOG-05/06.
 - **Hardware breadth.** One consumer NVIDIA GPU + one domestic GPU; no datacenter NVIDIA, and the
   available **Ampere sm80** is not yet a third point. The **GEMM family is C500-only** (Ada GEMM run
   pending) ⇒ the cross-vendor GEMM comparison is incomplete.
-- **Statistics.** Point-estimate (min-of-N) timings, no confidence intervals; one fp32 measurement
-  artifact was caught and corrected earlier, motivating a CI pass. Datasets are small (64–80 cases).
+- **Statistics.** The **key C500 claims now carry 95% CIs measured on 4 independent GPUs** (LOG-09):
+  the decision-flip (CI [0.638, 0.645]) and the GEMM toxicity (CI [0.821, 0.827]) are toxic with
+  overwhelming significance, and cross-device-reproducible to ~3 decimals. **The Ada-side claims**
+  (RQ1 F1, the Ada half of the flip) still warrant the same CI pass on the Ada machine. Datasets are
+  small (64–80 cases).
 - **Real-compiler scope.** The Inductor prediction is a capability demo; a *toxic* Inductor fusion could
   not be triggered at tractable sizes (LOG-08), so the discriminating evidence is on controlled kernels
   (the CONTRACTION spill tile) — the model targets weaker / domestic fusers, not a tuned Inductor.
