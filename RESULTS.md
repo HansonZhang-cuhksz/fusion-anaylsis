@@ -157,7 +157,16 @@ in `model/MODEL_SPEC.md`; open items in `REVIEW_FINDINGS_TODO.md`.*
   256-reg cap. This does not invalidate the model — it correctly flags the *as-shipped default* fusion as
   toxic, the pre-autotune regime a search-free pass serves — but the flip must be framed as **"the
   default-config fusion is toxic on C500, beneficial on Ada,"** not "fundamentally toxic on C500."
-  (Untested: whether the re-tuned 8-warp fusion is net-*beneficial* — spill removed ≠ fusion wins.)
+- **⚠ The flip is TUNABLE-AWAY, and the model tracks it (LOG-13, `data/flip_tunable_c500.csv`; verified).**
+  Re-tuning to `num_warps=8` (spill → 0) makes the C500 fusion **net-beneficial** for *both* families:
+  reduction 0.641 → **1.080** (tuning-aware best-vs-best 1.041, a *thin* ~4% margin), GEMM 0.825 →
+  **1.206** (robust ~20%). The **cost model tracks this**: fed the config-dependent static spill count it
+  predicts TOXIC@nw4 → beneficial@nw8 for both cases (matching measurement). So the flip is a correct,
+  *config-dependent* decision, not a hardware constant. **Honest caveat:** toxicity is **non-monotonic** —
+  the reduction is toxic again at nw16 (0.817, *zero spills*, over-provisioning collapses occupancy), and
+  the model — fed 0 spills — wrongly predicts beneficial there. So the model tracks the **spill-driven**
+  branch but misses the **occupancy/over-provisioning** branch (the inert-P_occ limitation again); it can
+  rule out spilling configs but cannot by itself find the nw8 sweet spot.
 - **Spilling is necessary but not sufficient for toxicity** — a counter-example lives inside our own data:
   the C500's fp16 128×128 tile spills **117** and is still **beneficial** (1.011–1.064). Likewise the
   reduction flip's dtype dependence is unexplained by register state: at R=C=2048, NOUT=32 the C500's fp16

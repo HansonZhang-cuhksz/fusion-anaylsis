@@ -42,9 +42,13 @@ disclosed-negative are marked as such); `[ ]` = genuinely open.*
       consequence:** the decision-flip's C500 spill is a **default-launch-config artifact** — `num_warps=8`
       or `num_stages=1` eliminates it for BOTH families (GEMM 205→0, reduction 100→0). Reframes the flip
       as "default-config toxic on C500," not "fundamentally toxic." Disclosed in RESULTS.md + LOG-04.
-- [ ] **#2 follow-up** *(untested; disclosed RESULTS.md L160 / LOG-12).* Time the 8-warp re-tuned
-      fused-vs-unfused on C500 (does removing the spill flip the decision back to beneficial?). Not measured
-      — all committed C500 timing is `num_warps=4`. Would extend the flip result to "the flip is tunable."
+- [x] **#2 follow-up — DONE (LOG-13, `data/flip_tunable_c500.csv`; verified `wf_42172126`).** The flip is
+      **tunable-away**: re-tuning to `num_warps=8` (spill → 0) makes the C500 fusion **net-beneficial** for
+      both families (reduction 0.641→**1.080**, tuning-aware 1.041 — *thin ~4%*; GEMM 0.825→**1.206** —
+      robust ~20%). The **cost model tracks** the TOXIC@nw4 → beneficial@nw8 flip via the config-dependent
+      static spill count. Caveat added: toxicity is **non-monotonic** (nw16 reduction toxic again via
+      over-provisioning, 0 spills — the model misses this occupancy branch). Reframes the flip as a
+      correct *config-dependent* decision, not a hardware constant. RESULTS.md + LOG-12 updated.
 
 ---
 

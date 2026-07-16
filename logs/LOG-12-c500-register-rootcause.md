@@ -66,12 +66,13 @@ fits it with zero spills — at 8 warps the register/thread even matches Ada (GE
   *as-shipped default* fusion as toxic, which is exactly the pre-autotune regime a search-free pass
   serves — but the flip must be framed as **"the default-config fusion is toxic on C500, beneficial on
   Ada,"** not "the fusion is fundamentally toxic on C500."
-- **Untested follow-up:** whether the *re-tuned* (8-warp) fused kernel is net-*beneficial* on C500
-  (spill removed ≠ fusion wins; the memory tradeoff still has to pay off). Timing that would extend the
-  decision-flip result to "the flip itself is tunable." Flagged, not measured (reduction recompiles are
-  slow here).
+- **Follow-up NOW MEASURED (LOG-13):** the *re-tuned* (8-warp) fused kernel **is net-beneficial** on
+  C500 for both families (reduction 1.080, GEMM 1.206), so the flip is genuinely tunable-away; the cost
+  model tracks the TOXIC→beneficial flip via the config-dependent spill count. Caveat: toxicity is
+  non-monotonic (nw16 reduction toxic again via over-provisioning, which the model misses). See LOG-13.
 
 ## Status
 - [x] #2 root cause identified with direct C500 evidence (pipeline multi-buffering + allocator gap;
       candidates ruled out) and the config-artifact consequence documented.
-- [ ] Follow-up: time the 8-warp re-tuned fused-vs-unfused to see if re-tuning flips the decision back.
+- [x] Follow-up: timed the 8-warp re-tuned fused-vs-unfused (LOG-13) — re-tuning flips the decision back
+      to beneficial for both families; model tracks it. Non-monotonic over-provisioning caveat added.

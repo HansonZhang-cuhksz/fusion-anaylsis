@@ -1,0 +1,6 @@
+case,warps,spills,fused_ms,unfused_ms,speedup
+reduction_N32_fp32,4,100,2.2403,1.4362,0.6411
+reduction_N32_fp32,8,0,1.2252,1.3235,1.0802
+reduction_N32_fp32,16,0,1.5624,1.2759,0.8166
+gemm_128_fp32,4,205,0.8038,0.663,0.8248
+gemm_128_fp32,8,0,0.1265,0.1526,1.2065
