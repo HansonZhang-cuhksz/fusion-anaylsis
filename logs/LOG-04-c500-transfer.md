@@ -6,9 +6,15 @@
 > capacity cancel — both devices hold the same resident-wave counts, and wave width predicts the *wrong*
 > direction. The real signal: the **C500 toolchain allocates 1.6–1.75× more registers/thread than
 > ptxas for identical non-spilling kernels** (64×64 fp16 84→134, fp32 96→168), saturating its 256-reg
-> cap where Ada lands at 255. Cause (compiler maturity vs ISA/accumulator layout) is unidentified. The
-> **decision-flip phenomenon still holds** (now bilateral: reduction *and* GEMM, CI-backed — LOG-10 §3);
-> only the mechanism sentence was wrong. `RESULTS.md` / `MODEL_SPEC.md §7` carry the corrected text.
+> cap where Ada lands at 255. **Cause now IDENTIFIED (LOG-12):** software-pipeline multi-buffering in
+> registers (~34 regs per `num_stages`) + a ~2× general allocator-efficiency gap vs ptxas; NOT
+> scalar-register underuse (MACA uses the ST file), NOT accumulator layout. **Caveat (LOG-12):** the
+> C500 spill driving the flip is a **default-launch-config artifact** — `num_warps=8` or `num_stages=1`
+> eliminates it for both families (GEMM 205→0, reduction 100→0), so the flip is "the *default-config*
+> fusion is toxic on C500," not "fundamentally toxic." The
+> **decision-flip phenomenon still holds** for the as-shipped default config (bilateral: reduction *and*
+> GEMM, CI-backed — LOG-10 §3); only the original mechanism sentence (§3/§4 below) was wrong.
+> `RESULTS.md` / `MODEL_SPEC.md §7` carry the corrected text.
 
 Date: 2026-07-14 · Machine: MetaX C500 ×4 (MACA 3.7.0), env `fusion` · Session: MetaX (this machine)
 

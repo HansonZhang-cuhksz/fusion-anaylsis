@@ -32,10 +32,17 @@ Both are C500-side (do **not** need Ada); they are the sharpest current gaps. Wo
       spill-but-beneficial fp16 cases wrong. A real fix needs a spill-as-**compute-serialization** model
       (so fp16's throughput actually separates the static-identical fp16/fp32 twins) **and** a larger,
       non-trivially-separable dataset. Deferred (separating 8 cases risks overfitting).
-- [ ] **#2 — Why does the C500 toolchain allocate 1.6–1.75× more regs/thread than ptxas?** The flip
-      mechanism is register-allocation divergence, not wavefront width (refuted, LOG-10 §2), but the
-      *cause* (compiler maturity vs ISA/accumulator layout) is unidentified. C500-side investigation:
-      the ST/MT split, tensor-core accumulator layout, SASS/PTX. (Ada reg counts already committed.)
+- [x] **#2 — Why does the C500 toolchain allocate 1.6–1.75× more regs/thread? → IDENTIFIED (LOG-12).**
+      Two additive causes: (a) **software-pipeline multi-buffering in registers** (~34 regs per
+      `num_stages`; Triton default 3 → ~68 extra regs), and (b) a **general ~2× allocator-efficiency gap**
+      vs ptxas (visible in the pipeline-free reduction too: C500 needs 2× the regs for *half* the
+      per-thread accumulator work). **Ruled out:** wavefront width (refuted), scalar-register underuse
+      (MACA uses ST: `26 MT + 16 ST`), accumulator layout (not MMA-specific). **Load-bearing
+      consequence:** the decision-flip's C500 spill is a **default-launch-config artifact** — `num_warps=8`
+      or `num_stages=1` eliminates it for BOTH families (GEMM 205→0, reduction 100→0). Reframes the flip
+      as "default-config toxic on C500," not "fundamentally toxic." Disclosed in RESULTS.md + LOG-04.
+- [ ] **#2 follow-up:** time the 8-warp re-tuned fused-vs-unfused (does removing the spill flip the
+      decision back to beneficial on C500?) — would extend the flip result to "the flip is tunable."
 
 ---
 

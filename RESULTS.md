@@ -143,8 +143,21 @@ in `model/MODEL_SPEC.md`; open items in `REVIEW_FINDINGS_TODO.md`.*
   exactly — back-solving both CSVs' `f_occ`, both devices hold **8** resident waves/warps on the reduction
   and **4** on the 128×128 GEMM. Wave width also predicts the **wrong direction**, since the C500 spreads
   the same tile over **2× the threads** (256 vs 128/block), which should *halve* per-thread demand.
-  Separating compiler register-allocation maturity from an ISA/accumulator-layout cause needs a per-wave
-  register-demand measurement we do not have.
+  **Cause now identified (LOG-12).** Direct C500 compile sweeps show the excess is (a) **software-pipeline
+  multi-buffering held in registers** — each `num_stages` adds ~34 regs (Triton default 3 → ~68 extra) —
+  plus (b) a **~2× general allocator-efficiency gap** vs ptxas, visible even in the pipeline-free reduction
+  (C500 needs 2× the registers for *half* the per-thread accumulator work). Ruled out: scalar-register
+  underuse (MACA *does* use the split file — `26 MT + 16 ST` on a probe kernel) and accumulator layout
+  (the effect is not MMA-specific).
+- **⚠ The C500 toxicity is a DEFAULT-LAUNCH-CONFIG artifact, not a hardware limit (LOG-12).** The spill
+  that drives *both* flip families vanishes under a C500-aware launch config: `num_warps=8` (or
+  `num_stages=1`) takes the GEMM 128×128 fp32 from **205 → 0** spills and the reduction NOUT=32 fp32 from
+  **100 → 0** (at 8 warps the register/thread even matches Ada). The Triton default `num_warps=4` is
+  NVIDIA-tuned (32-wide warps); on the C500's 64-wide warps it under-provisions threads and overflows the
+  256-reg cap. This does not invalidate the model — it correctly flags the *as-shipped default* fusion as
+  toxic, the pre-autotune regime a search-free pass serves — but the flip must be framed as **"the
+  default-config fusion is toxic on C500, beneficial on Ada,"** not "fundamentally toxic on C500."
+  (Untested: whether the re-tuned 8-warp fusion is net-*beneficial* — spill removed ≠ fusion wins.)
 - **Spilling is necessary but not sufficient for toxicity** — a counter-example lives inside our own data:
   the C500's fp16 128×128 tile spills **117** and is still **beneficial** (1.011–1.064). Likewise the
   reduction flip's dtype dependence is unexplained by register state: at R=C=2048, NOUT=32 the C500's fp16
@@ -265,10 +278,13 @@ zero genuinely toxic GEMM fusions, so **GEMM recall on Ada is undefined and shou
 - **Hardware breadth.** One consumer NVIDIA GPU + one domestic GPU; no datacenter NVIDIA. **sm80 is not
   reachable at all** (the Ada box hosts only the RTX 4060) — the third hardware point is **blocked**, not
   pending. The **GEMM family now runs on both devices** (LOG-10), so the cross-vendor GEMM comparison is
-  complete; but the flip's **mechanism remains only partially explained** — we can show the C500's compiler
-  demands 1.6–1.75× more regs/thread for identical kernels, but *not* why, and we explicitly retract the
-  earlier 64-wide-wavefront explanation (its register file is doubled in lockstep, so residency is
-  identical on both devices).
+  complete; and the flip's **mechanism is now explained (LOG-12)** — the C500 compiler demands 1.6–1.75×
+  more regs/thread because of pipeline multi-buffering held in registers (~34/`num_stages`) plus a ~2×
+  allocator-efficiency gap vs ptxas (we retract the earlier 64-wide-wavefront explanation — the register
+  file is doubled in lockstep). **The residual honesty cost is that this makes the C500 toxicity
+  default-config-dependent** (`num_warps=8`/`num_stages=1` removes the spill for both families), so the
+  flip is a property of the as-shipped default launch config, not a hardware necessity — a caveat we now
+  state explicitly rather than a mechanism we cannot explain.
 - **The reread fix is validated on the C500 only, and Ada cannot help.** On Ada the feature multiplies
   zero spills, so its inertness is an arithmetic identity — **not** a passing control. Ada carries no
   evidence for or against the fix.
