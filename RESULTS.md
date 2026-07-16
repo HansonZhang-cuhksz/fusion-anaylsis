@@ -100,7 +100,12 @@ in `model/MODEL_SPEC.md`; open items in `REVIEW_FINDINGS_TODO.md`.*
   "F1 1.000, 95% CI [1.000, 1.000]" is a **mathematical identity, not an estimate** — it quantifies no
   sampling error and has zero power to detect overfitting. Only a bootstrap that *refits* the constants
   inside each resample would be informative.
-- **C500** combined (reduction + pointwise + GEMM, 80 cases): **F1 0.852, recall 0.958**.
+- **C500** combined (reduction + pointwise + GEMM, 80 cases): in-sample **F1 0.873** with the integrated
+  dtype-aware compute term (`fp16_compute_mult=2.0`; baseline without it 0.852), **leave-one-dtype-out F1
+  0.906** vs the trivial `f_spills>0` rule's 0.857 — a *modest* out-of-fold gain (LOG-11). Unlike Ada,
+  the C500 has genuine spill-but-beneficial cases, so the model is not strictly dominated by the spill
+  rule here — but it still misclassifies 7 of the 8 hardest (fp16, static-identical to their toxic fp32
+  twins).
 - **Ablations** isolate the driver: drop the spill term → **F1 0.000**; drop smooth occupancy → F1 1.000
   (unchanged). The decisive signal is the **register-spill discontinuity**, not the smooth occupancy
   curve — but see the separability caveat above: on this benchmark that discontinuity is the *whole*
@@ -259,9 +264,14 @@ zero genuinely toxic GEMM fusions, so **GEMM recall on Ada is undefined and shou
    **taxonomy-derived spill-traffic** term.
 2. The **first fusion characterization of the MetaX C500** and a **cross-vendor transfer with TWO
    documented, CI-backed decision-flips** — one memory-bound (reduction), one compute-bound
-   (tensor-core GEMM) — hardware-validated via MCPTI. The flips are **empirically solid and
-   bilaterally significant**; their *mechanism* is only partially resolved (register-allocation
-   divergence between the two toolchains, cause unidentified — see RQ3).
+   (tensor-core GEMM) — hardware-validated via MCPTI. **Mechanism now identified (LOG-12):** the C500
+   toolchain allocates 1.6–1.75× more registers/thread than ptxas (software-pipeline multi-buffering
+   held in registers + a ~2× allocator-efficiency gap), pushing the fused kernel over the 256-reg cap.
+   **Honest reframing (LOG-13):** the flip is a property of the **default (NVIDIA-tuned) launch config**,
+   not the hardware — at `num_warps=8` the spill vanishes and the C500 fusion becomes beneficial for both
+   families (reduction 1.08, GEMM 1.21); the cost model correctly *tracks* this via the config-dependent
+   static spill count. So the contribution is a model that predicts config-dependent fusion toxicity, not
+   a hardware-fundamental flip.
 3. A **real-compiler (Inductor) validation** on the C500 showing fusion benefit is roofline-governed and
    that even a production compiler over-fuses net-harmfully compute-bound.
 
