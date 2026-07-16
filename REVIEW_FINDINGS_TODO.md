@@ -75,11 +75,17 @@ disclosed-negative are marked as such); `[ ]` = genuinely open.*
       pointwise/reduction/gemm_epilogue; no BROADCAST/softmax/LayerNorm/attention rows anywhere. Unstarted.
 - [ ] **Compare against TVM / Welder** (beyond the done Inductor baseline). No artifact anywhere — grep
       hits only PROPOSAL related-work. Never attempted.
-- [ ] **Refine the residual GEMM precision (0.5).** Flat reread ×2 over-rejects the fp16 big-tile.
-      **The `fp16_compute_mult` integration (4368d3a) did NOT fix this** — GEMM precision/F1 stays
-      0.500/0.667 (verified on the 16 GEMM rows), because the fp16 big-tile is **memory-bound**, so the
-      *compute* term can't move a memory-dominated prediction. Needs a dtype-aware **spill/memory-traffic**
-      term, not the compute term. Still open.
+- [x] **Refine the residual GEMM precision (0.5) → HONEST NEGATIVE (LOG-14, adjudicated `wf_ec5a4d64`).**
+      A dtype-aware spill-traffic term *can* lift it robustly (dtype-switched reread fp16→1: gemm F1
+      0.667→1.0, overall 0.873→0.941, generalizes leave-out 8/8, zero collateral) — **but it is a
+      dtype-label hack that misattributes the mechanism.** The reread models re-reading the **fp32
+      accumulator** (dtype-independent); MCPTI (LOG-05 §5) shows the fp16 fused does **+6.5% more** local
+      traffic than unfused (reread ~1.07, *not* 1.0), so zeroing it via the dtype string erases a real
+      effect. The true discriminator is the **runtime** fused−unfused local-traffic delta — not a static
+      single-compile input (the static spill counts even have the wrong sign, f_spills≤u_spills); the
+      *honest* spill-volume scaling leaves precision at 0.5. So it's a **boundary of the search-free
+      approach**, not a tuning gap. Kept flat `reread=2` (safe: recall 1.0, no toxic ever fused);
+      disclosed in RESULTS.md. Moot in practice — at num_warps=8 these cases don't spill (LOG-13).
 
 ## Bucket 3 — Genuine limitations that qualify "defensible"
 - [x] **Interpretability is narrow — DISCLOSED / scoped honestly (RESULTS.md L248–251, ablation

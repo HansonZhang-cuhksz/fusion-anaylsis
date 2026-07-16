@@ -223,6 +223,18 @@ traffic (950K vs 833K) than the count implies — the static count has the wrong
 traffic = count × taxonomy-derived reread) recovers **GEMM recall 0→1.0** with **reductions unchanged**
 and **Ada RQ1 unchanged**, independently verified incl. leave-one-family-out (held-out GEMM recall 1.0;
 0.0 with the feature ablated ⇒ it generalizes, not overfit). This is what makes Φ(v) **load-bearing**.
+- **Residual: GEMM *precision* = 0.5, and it cannot be refined honestly (B2d, LOG-14).** The flat
+  `reread=2` catches every toxic fp32 tile (recall 1.0) but over-rejects the 4 **beneficial fp16**
+  128×128 tiles (they spill 117 and are 1.01–1.06× — false positives). We tried to lift it with a
+  dtype-aware spill-traffic term: a dtype-switched reread (fp16→1) *robustly* fixes the metric (gemm F1
+  0.667→1.0, overall 0.873→0.941, generalizes 8/8) — **but it is a dtype-label hack that misattributes
+  the mechanism.** MCPTI shows the fp16 fused kernel does **+6.5% more** local traffic than its unfused
+  (461K vs 433K), so its true reread is ~1.07, **not** 1.0; zeroing it via the dtype string erases a real
+  effect. The genuine discriminator (fused−unfused *runtime* local traffic, +28K fp16 vs +117K fp32) is
+  **not a single-compile static input** — and the honest dtype-scaling of spill *volume* on both plans
+  leaves precision at 0.5. So this is a **boundary of the search-free approach**, not a tuning gap; we
+  keep `reread=2` (the precision loss is safe — recall stays 1.0, no toxic fusion is ever taken) and
+  disclose it. (It is also moot in practice: at `num_warps=8` these 4 cases don't spill at all — LOG-13.)
 LOG-05/06.
 
 **On Ada the fix is vacuous by construction, not validated (LOG-10).** The reread multiplier attaches only
